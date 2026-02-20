@@ -45,7 +45,6 @@ class Rating(Base):
     technical_score = Column(Float, nullable=True)  # Technical indicators
     analyst_score = Column(Float, nullable=True)  # Analyst ratings
     fundamental_score = Column(Float, nullable=True)  # P/E, P/B, etc.
-    momentum_score = Column(Float, nullable=True)  # Price momentum
     macro_score = Column(Float, nullable=True)  # Macroeconomic environment
 
     # Rating metadata
@@ -68,10 +67,6 @@ class TechnicalIndicator(Base):
     ema_12 = Column(Float, nullable=True)
     ema_26 = Column(Float, nullable=True)
 
-    # Momentum indicators
-    rsi = Column(Float, nullable=True)
-    macd = Column(Float, nullable=True)
-    macd_signal = Column(Float, nullable=True)
 
     # Volatility
     bollinger_upper = Column(Float, nullable=True)

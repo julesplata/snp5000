@@ -131,7 +131,6 @@ def create_sample_stocks(db: Session, sectors: list, rating_service: RatingServi
                     technical_score=rating_data.get("technical_score"),
                     analyst_score=rating_data.get("analyst_score"),
                     fundamental_score=rating_data.get("fundamental_score"),
-                    momentum_score=rating_data.get("momentum_score"),
                     data_sources=rating_data.get("data_sources"),
                     notes="Initial automated rating (Alpaca)",
                 )

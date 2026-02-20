@@ -56,7 +56,6 @@ class RatingBase(BaseModel):
     technical_score: Optional[float] = None
     analyst_score: Optional[float] = None
     fundamental_score: Optional[float] = None
-    momentum_score: Optional[float] = None
     notes: Optional[str] = None
 
 

@@ -26,10 +26,9 @@ class RatingService:
 
         self.weights = {
             "technical": 0.25,
-            "analyst": 0.20,
-            "fundamental": 0.20,
-            "momentum": 0.15,
-            "macro": 0.20,  # New: Macroeconomic environment
+            "analyst": 0.25,
+            "fundamental": 0.25,
+            "macro": 0.25,  # New: Macroeconomic environment
         }
 
     def calculate_rating(self, symbol: str) -> Dict:
@@ -49,7 +48,6 @@ class RatingService:
             # Calculate component scores
             technical_score = self._calculate_technical_score(hist, stock)
             fundamental_score = self._calculate_fundamental_score(stock)
-            momentum_score = self._calculate_momentum_score(hist)
             analyst_score = self._get_analyst_score(stock)
 
             # Get macroeconomic score (cached for 1 hour)
@@ -61,7 +59,6 @@ class RatingService:
                 technical_score * self.weights["technical"]
                 + analyst_score * self.weights["analyst"]
                 + fundamental_score * self.weights["fundamental"]
-                + momentum_score * self.weights["momentum"]
                 + macro_score * self.weights["macro"]
             )
 
@@ -70,15 +67,13 @@ class RatingService:
                 "technical_score": round(technical_score, 2),
                 "analyst_score": round(analyst_score, 2),
                 "fundamental_score": round(fundamental_score, 2),
-                "momentum_score": round(momentum_score, 2),
                 "macro_score": round(macro_score, 2),
                 "macro_analysis": macro_data.get("analysis", ""),
                 "macro_components": macro_data.get("components", {}),
                 "data_sources": {
-                    "technical": "yfinance",
+                    "technical": "alpaca",
                     "analyst": "yfinance",
-                    "fundamental": "yfinance",
-                    "momentum": "calculated",
+                    "fundamental": "alpaca",
                     "macro": macro_data.get("data_source", "FRED"),
                 },
             }
@@ -208,62 +203,6 @@ class RatingService:
             print(f"Error calculating fundamental score: {e}")
             return 5.0
 
-    def _calculate_momentum_score(self, hist: pd.DataFrame) -> float:
-        """
-        Calculate momentum score (0-10)
-        Based on recent price performance
-        """
-        try:
-            # Calculate returns over different periods
-            current_price = hist["Close"].iloc[-1]
-
-            # 1 week return
-            week_ago_price = hist["Close"].iloc[-5] if len(hist) >= 5 else current_price
-            week_return = (current_price - week_ago_price) / week_ago_price
-
-            # 1 month return
-            month_ago_price = (
-                hist["Close"].iloc[-21] if len(hist) >= 21 else current_price
-            )
-            month_return = (current_price - month_ago_price) / month_ago_price
-
-            # 3 month return
-            three_month_ago_price = (
-                hist["Close"].iloc[-63] if len(hist) >= 63 else current_price
-            )
-            three_month_return = (
-                current_price - three_month_ago_price
-            ) / three_month_ago_price
-
-            score = 5.0
-
-            # Weight recent performance more heavily
-            if week_return > 0.02:  # +2%
-                score += 1.5
-            elif week_return > 0:
-                score += 0.5
-            elif week_return < -0.02:
-                score -= 1.5
-
-            if month_return > 0.05:  # +5%
-                score += 1.5
-            elif month_return > 0:
-                score += 1.0
-            elif month_return < -0.05:
-                score -= 1.5
-
-            if three_month_return > 0.10:  # +10%
-                score += 1.5
-            elif three_month_return > 0:
-                score += 1.0
-            elif three_month_return < -0.10:
-                score -= 1.5
-
-            return min(max(score, 0), 10)
-
-        except Exception as e:
-            print(f"Error calculating momentum score: {e}")
-            return 5.0
 
     def _get_analyst_score(self, stock) -> float:
         """

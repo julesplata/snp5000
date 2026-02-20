@@ -69,14 +69,12 @@ def calculate_and_save_rating(stock_id: int, db: Session = Depends(get_db)):
     technical_score = 7.5  # Calculate from technical indicators
     analyst_score = 8.0  # Calculate from analyst ratings
     fundamental_score = 6.5  # Calculate from fundamentals
-    momentum_score = 7.0  # Calculate from price momentum
 
     # Weighted average
     overall_rating = (
-        technical_score * 0.3
-        + analyst_score * 0.3
-        + fundamental_score * 0.25
-        + momentum_score * 0.15
+        technical_score * 0.33
+        + analyst_score * 0.33
+        + fundamental_score * 0.33
     )
 
     db_rating = models.Rating(
@@ -85,12 +83,10 @@ def calculate_and_save_rating(stock_id: int, db: Session = Depends(get_db)):
         technical_score=technical_score,
         analyst_score=analyst_score,
         fundamental_score=fundamental_score,
-        momentum_score=momentum_score,
         data_sources={
             "technical": "calculated",
             "analyst": "placeholder",
             "fundamental": "placeholder",
-            "momentum": "calculated",
         },
         notes="Auto-generated rating",
     )
