@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.get("/", response_model=List[schemas.StockWithLatestRating])
 def get_stocks(
-    page: int = Query(1, ge=10),
+    page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     sector_id: Optional[int] = None,
     min_rating: Optional[float] = None,
@@ -19,7 +19,7 @@ def get_stocks(
     search: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    """Get all stocks with optional filtering"""
+    """Get all stocks with optional filtering and pagination"""
     query = db.query(models.Stock).options(
         joinedload(models.Stock.sector), joinedload(models.Stock.ratings)
     )
@@ -36,40 +36,46 @@ def get_stocks(
             )
         )
 
-    stocks = query.offset(page).limit(page_size).all()
+    offset_value = (page - 1) * page_size
+    stocks = query.offset(offset_value).limit(page_size).all()
 
-    # Add latest rating and trend to each stock
     result = []
     for stock in stocks:
-        stock_dict = schemas.Stock.from_orm(stock).dict()
+        stock_dict = schemas.Stock.model_validate(stock).model_dump()
 
         if stock.ratings:
-            # Get latest rating
-            latest_rating = max(stock.ratings, key=lambda r: r.rating_date)
-            stock_dict["latest_rating"] = schemas.Rating.model_validate(latest_rating).model_dump()
+            # Sort ratings once to avoid redundant work
+            sorted_ratings = sorted(
+                stock.ratings, key=lambda r: r.rating_date, reverse=True
+            )
+            latest_rating = sorted_ratings[0]
 
-            # Calculate trend
-            if len(stock.ratings) >= 2:
-                sorted_ratings = sorted(
-                    stock.ratings, key=lambda r: r.rating_date, reverse=True
+            # Apply dynamic rating filters
+            if min_rating and latest_rating.overall_rating < min_rating:
+                continue
+            if max_rating and latest_rating.overall_rating > max_rating:
+                continue
+
+            stock_dict["latest_rating"] = schemas.Rating.model_validate(
+                latest_rating
+            ).model_dump()
+
+            if len(sorted_ratings) >= 2:
+                curr, prev = (
+                    sorted_ratings[0].overall_rating,
+                    sorted_ratings[1].overall_rating,
                 )
-                if sorted_ratings[0].overall_rating > sorted_ratings[1].overall_rating:
+                if curr > prev:
                     stock_dict["rating_trend"] = "up"
-                elif (
-                    sorted_ratings[0].overall_rating < sorted_ratings[1].overall_rating
-                ):
+                elif curr < prev:
                     stock_dict["rating_trend"] = "down"
                 else:
                     stock_dict["rating_trend"] = "stable"
             else:
                 stock_dict["rating_trend"] = "new"
-
-            # Apply rating filters
-            if min_rating and latest_rating.overall_rating < min_rating:
-                continue
-            if max_rating and latest_rating.overall_rating > max_rating:
-                continue
         else:
+            if min_rating or max_rating:
+                continue
             stock_dict["latest_rating"] = None
             stock_dict["rating_trend"] = None
 

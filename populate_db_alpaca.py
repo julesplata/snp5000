@@ -4,7 +4,7 @@ import os
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 import models
-from services.rating_service_alpaca import AlpacaRatingService
+from services.rating_service import RatingService
 from datetime import datetime
 from config import get_settings
 
@@ -57,9 +57,7 @@ def create_sectors(db: Session):
     return created_sectors
 
 
-def create_sample_stocks(
-    db: Session, sectors: list, rating_service: AlpacaRatingService
-):
+def create_sample_stocks(db: Session, sectors: list, rating_service: RatingService):
     """Create sample stocks"""
 
     # Map sector names to sector objects
@@ -161,7 +159,7 @@ def main():
 
     # Initialize Alpaca rating service
     print("\nInitializing Alpaca API connection...")
-    rating_service = AlpacaRatingService(ALPACA_API_KEY, ALPACA_API_SECRET)
+    rating_service = RatingService(ALPACA_API_KEY, ALPACA_API_SECRET)
     print("✓ Connected to Alpaca API")
 
     # Create database tables

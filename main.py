@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
-from routers import stocks, ratings, sectors
+from routers import stocks, ratings, sectors, macro
 import uvicorn
 
 # Create database tables
@@ -26,7 +26,7 @@ app.add_middleware(
 app.include_router(stocks.router, prefix="/api/stocks", tags=["stocks"])
 app.include_router(ratings.router, prefix="/api/ratings", tags=["ratings"])
 app.include_router(sectors.router, prefix="/api/sectors", tags=["sectors"])
-
+app.include_router(macro.router, prefix="/api/macro", tags=["macroeconomics"])
 
 
 @app.get("/health")

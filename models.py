@@ -46,6 +46,7 @@ class Rating(Base):
     analyst_score = Column(Float, nullable=True)  # Analyst ratings
     fundamental_score = Column(Float, nullable=True)  # P/E, P/B, etc.
     momentum_score = Column(Float, nullable=True)  # Price momentum
+    macro_score = Column(Float, nullable=True)  # Macroeconomic environment
 
     # Rating metadata
     rating_date = Column(DateTime, default=datetime.utcnow, index=True)
