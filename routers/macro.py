@@ -49,6 +49,8 @@ def get_macro_indicators():
         macro_data = macro_service.calculate_macro_score()
         return {
             "indicators": macro_data.get("indicators", {}),
+            "indicator_context": macro_data.get("indicator_context", {}),
+            "indicator_meta": macro_data.get("indicator_meta", {}),
             "data_source": macro_data.get("data_source", "FRED"),
             "timestamp": "real-time",
         }

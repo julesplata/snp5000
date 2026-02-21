@@ -13,6 +13,8 @@ class MacroeconomicService:
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.getenv("FRED_API_KEY")
         self.base_url = "https://api.stlouisfed.org/fred/series/observations"
+        self.series_release_url = "https://api.stlouisfed.org/fred/series/release"
+        self.release_dates_url = "https://api.stlouisfed.org/fred/release/dates"
 
         if not self.api_key:
             print(
@@ -41,6 +43,9 @@ class MacroeconomicService:
             "consumer_sentiment": (75, 95),  # Confident consumers
         }
 
+        # Cache release lookups to avoid extra API calls
+        self._release_cache: Dict[str, Dict] = {}
+
     def calculate_macro_score(self) -> Dict:
         """
         Calculate overall macroeconomic score (0-10)
@@ -56,7 +61,7 @@ class MacroeconomicService:
                 return self._get_default_score()
 
             # Fetch all indicators
-            indicators = self._fetch_all_indicators()
+            indicators, indicator_meta = self._fetch_all_indicators()
 
             if not indicators:
                 return self._get_default_score()
@@ -113,6 +118,19 @@ class MacroeconomicService:
                 },
             )
 
+            indicator_context = self._generate_indicator_context(
+                indicators,
+                {
+                    "interest_rates": interest_rate_score,
+                    "inflation": inflation_score,
+                    "growth": growth_score,
+                    "employment": employment_score,
+                    "yield_curve": yield_curve_score,
+                    "sentiment": sentiment_score,
+                },
+                indicator_meta,
+            )
+
             return {
                 "macro_score": round(macro_score, 2),
                 "components": {
@@ -124,6 +142,8 @@ class MacroeconomicService:
                     "sentiment": round(sentiment_score, 2),
                 },
                 "indicators": indicators,
+                "indicator_context": indicator_context,
+                "indicator_meta": indicator_meta,
                 "analysis": analysis,
                 "data_source": "FRED",
             }
@@ -132,61 +152,73 @@ class MacroeconomicService:
             print(f"Error calculating macro score: {e}")
             return self._get_default_score()
 
-    def _fetch_all_indicators(self) -> Dict:
-        """Fetch all economic indicators from FRED"""
-        indicators = {}
+    def _fetch_all_indicators(self) -> Tuple[Dict, Dict]:
+        """Fetch all economic indicators from FRED with publication metadata"""
+        indicators: Dict[str, float] = {}
+        meta: Dict[str, Dict] = {}
 
         try:
             # Federal Funds Rate
-            fed_funds = self._fetch_latest_value("fed_funds_rate")
-            if fed_funds:
-                indicators["fed_funds_rate"] = fed_funds
+            fed_funds = self._fetch_latest_observation("fed_funds_rate")
+            if fed_funds and fed_funds.get("value") is not None:
+                indicators["fed_funds_rate"] = fed_funds["value"]
+                meta["fed_funds_rate"] = self._build_meta("fed_funds_rate", fed_funds)
 
             # Inflation (YoY change in CPI)
             inflation_rate = self._calculate_inflation_rate()
-            if inflation_rate:
-                indicators["inflation_rate"] = inflation_rate
+            if inflation_rate and inflation_rate.get("value") is not None:
+                indicators["inflation_rate"] = inflation_rate["value"]
+                meta["inflation_rate"] = self._build_meta(
+                    "inflation_cpi", inflation_rate
+                )
 
             # GDP Growth (latest quarterly rate)
-            gdp_growth = self._fetch_latest_value("gdp_growth")
-            if gdp_growth:
-                indicators["gdp_growth"] = gdp_growth
+            gdp_growth = self._fetch_latest_observation("gdp_growth")
+            if gdp_growth and gdp_growth.get("value") is not None:
+                indicators["gdp_growth"] = gdp_growth["value"]
+                meta["gdp_growth"] = self._build_meta("gdp_growth", gdp_growth)
 
             # Unemployment Rate
-            unemployment = self._fetch_latest_value("unemployment")
-            if unemployment:
-                indicators["unemployment"] = unemployment
+            unemployment = self._fetch_latest_observation("unemployment")
+            if unemployment and unemployment.get("value") is not None:
+                indicators["unemployment"] = unemployment["value"]
+                meta["unemployment"] = self._build_meta("unemployment", unemployment)
 
             # Treasury Yields
-            treasury_10y = self._fetch_latest_value("treasury_10y")
-            if treasury_10y:
-                indicators["treasury_10y"] = treasury_10y
+            treasury_10y = self._fetch_latest_observation("treasury_10y")
+            if treasury_10y and treasury_10y.get("value") is not None:
+                indicators["treasury_10y"] = treasury_10y["value"]
+                meta["treasury_10y"] = self._build_meta("treasury_10y", treasury_10y)
 
-            treasury_2y = self._fetch_latest_value("treasury_2y")
-            if treasury_2y:
-                indicators["treasury_2y"] = treasury_2y
+            treasury_2y = self._fetch_latest_observation("treasury_2y")
+            if treasury_2y and treasury_2y.get("value") is not None:
+                indicators["treasury_2y"] = treasury_2y["value"]
+                meta["treasury_2y"] = self._build_meta("treasury_2y", treasury_2y)
 
             # Consumer Sentiment
-            sentiment = self._fetch_latest_value("consumer_sentiment")
-            if sentiment:
-                indicators["consumer_sentiment"] = sentiment
+            sentiment = self._fetch_latest_observation("consumer_sentiment")
+            if sentiment and sentiment.get("value") is not None:
+                indicators["consumer_sentiment"] = sentiment["value"]
+                meta["consumer_sentiment"] = self._build_meta(
+                    "consumer_sentiment", sentiment
+                )
 
-            return indicators
+            return indicators, meta
 
         except Exception as e:
             print(f"Error fetching indicators: {e}")
-            return {}
+            return {}, {}
 
-    def _fetch_latest_value(
-        self, indicator_key: str, days_back: int = 90
-    ) -> Optional[float]:
-        """Fetch the most recent value for an indicator"""
+    def _fetch_latest_observation(
+        self, indicator_key: str, days_back: int = 400, observations: int = 2
+    ) -> Optional[Dict]:
+        """Fetch the most recent observation (and optional previous) for an indicator"""
+
         try:
             series_id = self.series_ids.get(indicator_key)
             if not series_id:
                 return None
 
-            # Get data from last 90 days to ensure we have recent value
             end_date = datetime.now().strftime("%Y-%m-%d")
             start_date = (datetime.now() - timedelta(days=days_back)).strftime(
                 "%Y-%m-%d"
@@ -199,30 +231,45 @@ class MacroeconomicService:
                 "observation_start": start_date,
                 "observation_end": end_date,
                 "sort_order": "desc",
-                "limit": 1,
+                "limit": observations,
             }
 
             response = requests.get(self.base_url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
 
-            if "observations" in data and len(data["observations"]) > 0:
-                value = data["observations"][0]["value"]
-                if value != ".":  # FRED uses '.' for missing data
-                    return float(value)
+            observations_list = data.get("observations", [])
+            if not observations_list:
+                return None
 
-            return None
+            latest = observations_list[0]
+            value = latest.get("value")
+            if value == ".":
+                return None
+
+            previous = observations_list[1] if len(observations_list) > 1 else None
+
+            result = {
+                "value": float(value),
+                "date": latest.get("date"),
+            }
+
+            if previous and previous.get("value") and previous.get("value") != ".":
+                result["previous_value"] = float(previous.get("value"))
+                result["previous_date"] = previous.get("date")
+
+            return result
 
         except Exception as e:
             print(f"Error fetching {indicator_key}: {e}")
             return None
 
-    def _calculate_inflation_rate(self) -> Optional[float]:
-        """Calculate year-over-year inflation rate from CPI data"""
+    def _calculate_inflation_rate(self) -> Optional[Dict]:
+        """Calculate year-over-year inflation rate from CPI data with metadata"""
         try:
             series_id = self.series_ids["inflation_cpi"]
 
-            # Get CPI from last 13 months
+            # Get CPI from last 13 months (enough for YoY)
             end_date = datetime.now().strftime("%Y-%m-%d")
             start_date = (datetime.now() - timedelta(days=400)).strftime("%Y-%m-%d")
 
@@ -233,27 +280,148 @@ class MacroeconomicService:
                 "observation_start": start_date,
                 "observation_end": end_date,
                 "sort_order": "desc",
-                "limit": 13,
+                "limit": 14,
             }
 
             response = requests.get(self.base_url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
 
-            if "observations" in data and len(data["observations"]) >= 2:
-                # Most recent CPI
-                current_cpi = float(data["observations"][0]["value"])
-                # CPI from ~12 months ago
-                year_ago_cpi = float(data["observations"][-1]["value"])
+            observations = data.get("observations", [])
+            if len(observations) < 2:
+                return None
 
-                # Calculate YoY % change
-                inflation_rate = ((current_cpi - year_ago_cpi) / year_ago_cpi) * 100
-                return inflation_rate
+            current = observations[0]
+            year_ago = observations[-1]
 
-            return None
+            current_cpi = float(current.get("value"))
+            year_ago_cpi = float(year_ago.get("value"))
+
+            inflation_rate = ((current_cpi - year_ago_cpi) / year_ago_cpi) * 100
+
+            result = {
+                "value": inflation_rate,
+                "date": current.get("date"),
+            }
+
+            # Best-effort previous YoY figure for change context
+            if len(observations) >= 14:
+                prev_current = observations[1]
+                prev_year_ago = observations[-2]
+                try:
+                    prev_inflation = (
+                        (
+                            float(prev_current.get("value"))
+                            - float(prev_year_ago.get("value"))
+                        )
+                        / float(prev_year_ago.get("value"))
+                    ) * 100
+                    result["previous_value"] = prev_inflation
+                    result["previous_date"] = prev_current.get("date")
+                except Exception:
+                    pass
+
+            return result
 
         except Exception as e:
             print(f"Error calculating inflation: {e}")
+            return None
+
+    def _build_meta(self, indicator_key: str, observation: Dict) -> Dict:
+        """Add publication and next-release metadata for an indicator"""
+
+        meta: Dict[str, Optional[str]] = {
+            "published_at": observation.get("date"),
+        }
+
+        if observation.get("previous_value") is not None:
+            meta["previous"] = {
+                "value": observation.get("previous_value"),
+                "date": observation.get("previous_date"),
+            }
+
+        next_release = self._get_next_release_date(indicator_key)
+        if next_release:
+            meta["next_release"] = next_release
+
+        return meta
+
+    def _get_next_release_date(self, indicator_key: str) -> Optional[str]:
+        """Look up the next scheduled release date for a series (best effort)"""
+
+        try:
+            # Cache hit
+            cached = self._release_cache.get(indicator_key)
+            if cached and cached.get("next_release"):
+                return cached.get("next_release")
+
+            series_id = self.series_ids.get(indicator_key)
+            if not series_id:
+                return None
+
+            # First find the release_id associated with the series
+            release_id = self._release_cache.get(indicator_key, {}).get("release_id")
+
+            if not release_id:
+                params = {
+                    "series_id": series_id,
+                    "api_key": self.api_key,
+                    "file_type": "json",
+                }
+
+                resp = requests.get(self.series_release_url, params=params, timeout=10)
+                resp.raise_for_status()
+                release_payload = resp.json()
+                releases = release_payload.get("releases") or release_payload.get(
+                    "release"
+                )
+                if releases and isinstance(releases, list):
+                    release_id = releases[0].get("id")
+
+            if not release_id:
+                return None
+
+            # Query the release calendar
+            params = {
+                "release_id": release_id,
+                "api_key": self.api_key,
+                "file_type": "json",
+                "include_release_dates_with_no_data": True,
+                "order_by": "release_date",
+                "sort_order": "asc",
+                "limit": 25,
+            }
+
+            resp = requests.get(self.release_dates_url, params=params, timeout=10)
+            resp.raise_for_status()
+            dates_payload = resp.json()
+            release_dates = dates_payload.get("release_dates", [])
+
+            today = datetime.now().date()
+            future_dates = []
+            for item in release_dates:
+                date_str = item.get("date")
+                try:
+                    parsed = datetime.strptime(date_str, "%Y-%m-%d").date()
+                    if parsed >= today:
+                        future_dates.append(parsed)
+                except Exception:
+                    continue
+
+            next_release = (
+                min(future_dates).strftime("%Y-%m-%d") if future_dates else None
+            )
+
+            # Cache the result
+            self._release_cache[indicator_key] = {
+                "release_id": release_id,
+                "next_release": next_release,
+            }
+
+            return next_release
+
+        except Exception as e:
+            print(f"Error fetching next release for {indicator_key}: {e}")
             return None
 
     def _score_interest_rates(
@@ -464,6 +632,126 @@ class MacroeconomicService:
 
         return analysis.strip()
 
+    def _generate_indicator_context(
+        self, indicators: Dict, components: Dict, indicator_meta: Dict
+    ) -> Dict:
+        """Attach reusable, category-style context plus timing metadata for each indicator"""
+
+        meta = {
+            "inflation_rate": self.optimal_ranges.get("inflation"),
+            "unemployment": self.optimal_ranges.get("unemployment"),
+            "gdp_growth": self.optimal_ranges.get("gdp_growth"),
+            "fed_funds_rate": self.optimal_ranges.get("fed_funds_rate"),
+            "treasury_10y": self.optimal_ranges.get("treasury_10y"),
+            "consumer_sentiment": self.optimal_ranges.get("consumer_sentiment"),
+        }
+
+        context = {}
+
+        # Yield curve spread is derived, not fetched directly
+        t10y = indicators.get("treasury_10y")
+        t2y = indicators.get("treasury_2y")
+        if t10y is not None and t2y is not None:
+            indicators["yield_curve_spread"] = round(t10y - t2y, 2)
+            meta["yield_curve_spread"] = self.optimal_ranges.get("yield_curve")
+
+        for key, value in indicators.items():
+            if value is None:
+                continue
+
+            optimal = meta.get(key)
+            category = description = None
+            change = change_pct = trend = None
+
+            if optimal:
+                category = self._categorize_against_optimal(value, optimal)
+                description = self._generic_description(key, category, optimal)
+            else:
+                # Fallback: map component score if available
+                component_key = self._map_indicator_to_component(key)
+                score = components.get(component_key) if component_key else None
+                category = self._score_to_category(score) if score is not None else "n/a"
+                description = f"{component_key or key} sits in {category} territory."
+
+            prev_meta = indicator_meta.get(key, {}).get("previous") if indicator_meta else None
+            if prev_meta and prev_meta.get("value") is not None:
+                prev_val = prev_meta["value"]
+                change = round(value - prev_val, 4)
+                if prev_val != 0:
+                    change_pct = round((change / prev_val) * 100, 3)
+                if change > 0:
+                    trend = "up"
+                elif change < 0:
+                    trend = "down"
+                else:
+                    trend = "flat"
+
+            context[key] = {
+                "category": category,
+                "description": description,
+                "value": round(value, 2) if isinstance(value, (int, float)) else value,
+                "published_at": indicator_meta.get(key, {}).get("published_at"),
+                "next_release": indicator_meta.get(key, {}).get("next_release"),
+                "previous": indicator_meta.get(key, {}).get("previous"),
+                "change": change,
+                "change_pct": change_pct,
+                "trend": trend,
+                "expectation_supported": False,  # FRED does not include forecasts/consensus
+                "surprise": None,
+            }
+
+        return context
+
+    def _categorize_against_optimal(self, value: float, optimal_range: Tuple[float, float]) -> str:
+        """Generic bucketing versus optimal range"""
+
+        low, high = optimal_range
+        width = max(high - low, 0.01)
+
+        if low <= value <= high:
+            return "ideal"
+        if low - width * 0.5 <= value <= high + width * 0.5:
+            return "acceptable"
+        if value < low:
+            return "below-range"
+        return "above-range"
+
+    def _generic_description(
+        self, indicator_key: str, category: str, optimal_range: Tuple[float, float]
+    ) -> str:
+        """Plain template description usable across indicators"""
+
+        low, high = optimal_range
+        return (
+            f"{indicator_key} is {category} relative to target band {low:.1f}-{high:.1f}."
+        )
+
+    def _map_indicator_to_component(self, indicator_key: str) -> Optional[str]:
+        mapping = {
+            "fed_funds_rate": "interest_rates",
+            "treasury_10y": "interest_rates",
+            "treasury_2y": "interest_rates",
+            "yield_curve_spread": "yield_curve",
+            "inflation_rate": "inflation",
+            "gdp_growth": "growth",
+            "unemployment": "employment",
+            "consumer_sentiment": "sentiment",
+        }
+        return mapping.get(indicator_key)
+
+    def _score_to_category(self, score: Optional[float]) -> str:
+        if score is None:
+            return "unknown"
+        if score >= 8:
+            return "very strong"
+        if score >= 6:
+            return "favorable"
+        if score >= 4:
+            return "neutral"
+        if score >= 2:
+            return "caution"
+        return "weak"
+
     def _get_default_score(self) -> Dict:
         """Return neutral score when API key is not available"""
         return {
@@ -477,6 +765,8 @@ class MacroeconomicService:
                 "sentiment": 5.0,
             },
             "indicators": {},
+            "indicator_context": {},
+            "indicator_meta": {},
             "analysis": "Macro score unavailable (FRED API key not configured)",
             "data_source": "default",
         }
