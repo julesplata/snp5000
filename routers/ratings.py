@@ -72,9 +72,7 @@ def calculate_and_save_rating(stock_id: int, db: Session = Depends(get_db)):
 
     # Weighted average
     overall_rating = (
-        technical_score * 0.33
-        + analyst_score * 0.33
-        + fundamental_score * 0.33
+        technical_score * 0.33 + analyst_score * 0.33 + fundamental_score * 0.33
     )
 
     db_rating = models.Rating(

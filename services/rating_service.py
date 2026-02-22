@@ -203,7 +203,6 @@ class RatingService:
             print(f"Error calculating fundamental score: {e}")
             return 5.0
 
-
     def _get_analyst_score(self, stock) -> float:
         """
         Get analyst recommendations score (0-10)

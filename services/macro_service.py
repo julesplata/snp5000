@@ -670,10 +670,14 @@ class MacroeconomicService:
                 # Fallback: map component score if available
                 component_key = self._map_indicator_to_component(key)
                 score = components.get(component_key) if component_key else None
-                category = self._score_to_category(score) if score is not None else "n/a"
+                category = (
+                    self._score_to_category(score) if score is not None else "n/a"
+                )
                 description = f"{component_key or key} sits in {category} territory."
 
-            prev_meta = indicator_meta.get(key, {}).get("previous") if indicator_meta else None
+            prev_meta = (
+                indicator_meta.get(key, {}).get("previous") if indicator_meta else None
+            )
             if prev_meta and prev_meta.get("value") is not None:
                 prev_val = prev_meta["value"]
                 change = round(value - prev_val, 4)
@@ -702,7 +706,9 @@ class MacroeconomicService:
 
         return context
 
-    def _categorize_against_optimal(self, value: float, optimal_range: Tuple[float, float]) -> str:
+    def _categorize_against_optimal(
+        self, value: float, optimal_range: Tuple[float, float]
+    ) -> str:
         """Generic bucketing versus optimal range"""
 
         low, high = optimal_range
@@ -722,9 +728,7 @@ class MacroeconomicService:
         """Plain template description usable across indicators"""
 
         low, high = optimal_range
-        return (
-            f"{indicator_key} is {category} relative to target band {low:.1f}-{high:.1f}."
-        )
+        return f"{indicator_key} is {category} relative to target band {low:.1f}-{high:.1f}."
 
     def _map_indicator_to_component(self, indicator_key: str) -> Optional[str]:
         mapping = {

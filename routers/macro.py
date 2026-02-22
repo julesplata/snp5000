@@ -1,8 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict
+from sqlalchemy.orm import Session
 from services.macro_service import MacroeconomicService
 import os
 from config import get_settings
+from database import get_db
+from services import macro_repository
 
 router = APIRouter()
 
@@ -14,7 +17,7 @@ macro_service = MacroeconomicService(api_key=FRED_API_KEY)
 
 
 @router.get("/", response_model=Dict)
-def get_macro_environment():
+def get_macro_environment(db: Session = Depends(get_db)):
     """
     Get current macroeconomic environment analysis
 
@@ -25,8 +28,21 @@ def get_macro_environment():
     Data is real-time from Federal Reserve Economic Data (FRED).
     """
     try:
-        macro_data = macro_service.calculate_macro_score()
-        return macro_data
+        snapshot = macro_repository.get_latest_snapshot(db)
+
+        if not snapshot:
+            snapshot = _refresh_and_store(db)
+
+        return {
+            "macro_score": snapshot.macro_score,
+            "components": snapshot.components,
+            "indicators": snapshot.indicators,
+            "indicator_context": snapshot.indicator_context,
+            "indicator_meta": snapshot.indicator_meta,
+            "analysis": snapshot.analysis,
+            "data_source": snapshot.data_source,
+            "created_at": snapshot.created_at,
+        }
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error fetching macro data: {str(e)}"
@@ -34,7 +50,7 @@ def get_macro_environment():
 
 
 @router.get("/indicators", response_model=Dict)
-def get_macro_indicators():
+def get_macro_indicators(db: Session = Depends(get_db)):
     """
     Get just the raw macroeconomic indicators without scoring
 
@@ -46,17 +62,44 @@ def get_macro_indicators():
     - Consumer sentiment
     """
     try:
-        macro_data = macro_service.calculate_macro_score()
+        snapshot = macro_repository.get_latest_snapshot(db)
+        if not snapshot:
+            snapshot = _refresh_and_store(db)
+
         return {
-            "indicators": macro_data.get("indicators", {}),
-            "indicator_context": macro_data.get("indicator_context", {}),
-            "indicator_meta": macro_data.get("indicator_meta", {}),
-            "data_source": macro_data.get("data_source", "FRED"),
-            "timestamp": "real-time",
+            "indicators": snapshot.indicators or {},
+            "indicator_context": snapshot.indicator_context or {},
+            "indicator_meta": snapshot.indicator_meta or {},
+            "data_source": snapshot.data_source,
+            "timestamp": snapshot.created_at,
         }
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error fetching indicators: {str(e)}"
+        )
+
+
+@router.post("/refresh", response_model=Dict)
+def refresh_macro_data(db: Session = Depends(get_db)):
+    """
+    Force refresh of macroeconomic data from external sources and persist to DB.
+    """
+    try:
+        snapshot = _refresh_and_store(db)
+        return {
+            "id": snapshot.id,
+            "created_at": snapshot.created_at,
+            "macro_score": snapshot.macro_score,
+            "components": snapshot.components,
+            "indicators": snapshot.indicators,
+            "indicator_context": snapshot.indicator_context,
+            "indicator_meta": snapshot.indicator_meta,
+            "analysis": snapshot.analysis,
+            "data_source": snapshot.data_source,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error refreshing macro data: {str(e)}"
         )
 
 
@@ -98,3 +141,11 @@ def check_macro_service():
             "message": f"FRED API connection failed: {str(e)}",
             "recommendation": "Verify FRED_API_KEY is valid",
         }
+
+
+def _refresh_and_store(db: Session):
+    """
+    Internal helper to fetch fresh macro data and persist snapshot.
+    """
+    macro_data = macro_service.calculate_macro_score()
+    return macro_repository.save_snapshot(db, macro_data)

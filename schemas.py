@@ -137,3 +137,19 @@ class StockFilter(BaseModel):
 class RatingHistoryResponse(BaseModel):
     stock: Stock
     ratings: List[Rating]
+
+
+# Macro Schemas
+class MacroSnapshot(BaseModel):
+    id: int
+    macro_score: Optional[float] = None
+    components: Optional[dict] = None
+    indicators: Optional[dict] = None
+    indicator_context: Optional[dict] = None
+    indicator_meta: Optional[dict] = None
+    analysis: Optional[str] = None
+    data_source: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

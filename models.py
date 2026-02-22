@@ -55,6 +55,25 @@ class Rating(Base):
     stock = relationship("Stock", back_populates="ratings")
 
 
+class MacroSnapshot(Base):
+    """
+    Stores a single macroeconomic snapshot pulled from external data sources (e.g., FRED).
+    API layer should read from this table to avoid repeated network calls.
+    """
+
+    __tablename__ = "macro_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    macro_score = Column(Float, nullable=True)
+    components = Column(JSON, nullable=True)
+    indicators = Column(JSON, nullable=True)
+    indicator_context = Column(JSON, nullable=True)
+    indicator_meta = Column(JSON, nullable=True)
+    analysis = Column(Text, nullable=True)
+    data_source = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 class TechnicalIndicator(Base):
     __tablename__ = "technical_indicators"
 
@@ -66,7 +85,6 @@ class TechnicalIndicator(Base):
     sma_200 = Column(Float, nullable=True)
     ema_12 = Column(Float, nullable=True)
     ema_26 = Column(Float, nullable=True)
-
 
     # Volatility
     bollinger_upper = Column(Float, nullable=True)
