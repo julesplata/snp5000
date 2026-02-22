@@ -2,8 +2,8 @@ import sys
 import time
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
-import models
-from services.rating_service import RatingService
+import app.models as models
+from app.utils.rating_utils import RatingService
 from datetime import datetime
 
 

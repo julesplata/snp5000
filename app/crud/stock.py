@@ -3,8 +3,8 @@ from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
-import models
-import schemas
+import app.models as models
+import app.schemas as schemas
 
 
 def list_stocks(
@@ -122,7 +122,7 @@ def create_stock(db: Session, stock: schemas.StockCreate) -> models.Stock:
             status_code=400, detail="Stock with this symbol already exists"
         )
 
-    db_stock = models.Stock(**stock.dict())
+    db_stock = models.Stock(**stock.model_dump())
     db.add(db_stock)
     db.commit()
     db.refresh(db_stock)

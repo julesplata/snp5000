@@ -1,7 +1,6 @@
-from pydantic import BaseModel
-from typing import Optional, List
 from datetime import datetime
-
+from typing import Optional, List
+from pydantic import BaseModel
 
 # Sector Schemas
 class SectorBase(BaseModel):
@@ -56,14 +55,19 @@ class RatingBase(BaseModel):
     technical_score: Optional[float] = None
     analyst_score: Optional[float] = None
     fundamental_score: Optional[float] = None
+    macro_score: Optional[float] = None
+    data_sources: Optional[dict] = None
     notes: Optional[str] = None
+
+
+class RatingCreate(RatingBase):
+    stock_id: int
 
 
 class Rating(RatingBase):
     id: int
     stock_id: int
     rating_date: datetime
-    data_sources: Optional[dict] = None
 
     class Config:
         from_attributes = True
@@ -71,7 +75,7 @@ class Rating(RatingBase):
 
 class StockWithLatestRating(Stock):
     latest_rating: Optional[Rating] = None
-    rating_trend: Optional[str] = None  # "up", "down", "stable"
+    rating_trend: Optional[str] = None
 
 
 # Technical Indicator Schemas

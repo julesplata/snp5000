@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
-from routers import stocks, ratings, sectors, macro
 import uvicorn
+
+import app.models  # noqa: F401 ensures models are registered
+from app.api import stocks, ratings, sectors, macro
 
 # Create database tables
 Base.metadata.create_all(bind=engine)

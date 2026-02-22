@@ -18,7 +18,7 @@ from sqlalchemy import desc
 
 from config import get_settings
 from database import SessionLocal
-import models
+import app.models as models
 from services.macro_service import MacroeconomicService
 
 
@@ -36,7 +36,6 @@ class FinnhubClient:
 
     def _throttle(self):
         now = time.time()
-        # prune anything older than 60s
         while self._call_times and now - self._call_times[0] > 60:
             self._call_times.popleft()
         if len(self._call_times) >= self.max_per_minute:
@@ -52,7 +51,6 @@ class FinnhubClient:
             self._throttle()
             resp = requests.get(f"{self.BASE_URL}{path}", params=params, timeout=10)
             if resp.status_code == 429:
-                # back off gently
                 time.sleep(1.5 * (attempt + 1))
                 continue
             resp.raise_for_status()
@@ -75,7 +73,6 @@ class RatingService:
         )
         self.macro_service = MacroeconomicService()
 
-        # Cache macro data (refresh every hour)
         self._macro_cache = None
         self._macro_cache_time = None
 
@@ -86,32 +83,18 @@ class RatingService:
             "macro": 0.25,
         }
 
-        # TTLs to avoid hammering APIs
-        self.technical_ttl_hours = 6  # intraday changes matter more
-        self.fundamental_ttl_hours = 24  # fundamentals change slowly
+        self.technical_ttl_hours = 6
+        self.fundamental_ttl_hours = 24
 
-    # ---------- Public API ----------
     def calculate_rating(self, symbol: str, db: Session = None) -> Optional[Dict]:
-        """
-        Calculate comprehensive rating for a stock.
-        Saves/reads technical and fundamental snapshots from the DB.
-        """
         db = db or self.db or SessionLocal()
         try:
             stock = self._get_or_create_stock(symbol, db)
-
-            # Technical snapshot
             technical = self._get_or_fetch_technical(stock, db)
             technical_score = self._calculate_technical_score(technical)
-
-            # Fundamental snapshot
             fundamental = self._get_or_fetch_fundamental(stock, db)
             fundamental_score = self._calculate_fundamental_score(fundamental)
-
-            # Analyst score (no persistence yet, single lightweight call)
             analyst_score = self._get_analyst_score(symbol)
-
-            # Macro score (cached in memory)
             macro_data = self._get_macro_score()
             macro_score = macro_data["macro_score"]
 
@@ -153,7 +136,6 @@ class RatingService:
                 db.close()
 
     def get_stock_info(self, symbol: str) -> Optional[Dict]:
-        """Get basic stock information from Finnhub profile endpoint."""
         try:
             data = self.finnhub.get("/stock/profile2", {"symbol": symbol})
             if not data:
@@ -172,7 +154,6 @@ class RatingService:
             print(f"Error fetching stock profile: {e}")
             return None
 
-    # ---------- Internal helpers ----------
     def _get_or_create_stock(self, symbol: str, db: Session) -> models.Stock:
         stock = db.query(models.Stock).filter(models.Stock.symbol == symbol).first()
         if stock:
@@ -210,13 +191,11 @@ class RatingService:
         if hist is None or hist.empty:
             raise ValueError(f"No historical data for {stock.symbol}")
 
-        technical = self._compute_and_store_technical(stock, hist, db)
-        return technical
+        return self._compute_and_store_technical(stock, hist, db)
 
     def _fetch_price_history(
         self, symbol: str, days: int = 365
     ) -> Optional[pd.DataFrame]:
-        """Fetch daily candles from Finnhub and return DataFrame with Close prices."""
         end = int(time.time())
         start = end - days * 24 * 60 * 60
         data = self.finnhub.get(
@@ -226,7 +205,7 @@ class RatingService:
         if not data or data.get("s") != "ok":
             return None
 
-        df = pd.DataFrame(
+        return pd.DataFrame(
             {
                 "Close": data["c"],
                 "High": data["h"],
@@ -236,23 +215,16 @@ class RatingService:
             },
             index=pd.to_datetime(data["t"], unit="s"),
         )
-        return df
 
     def _compute_and_store_technical(
         self, stock: models.Stock, hist: pd.DataFrame, db: Session
     ) -> models.TechnicalIndicator:
-        # Calculate moving averages
         sma_50 = hist["Close"].rolling(window=50).mean().iloc[-1]
         sma_200 = hist["Close"].rolling(window=200).mean().iloc[-1]
-
-        # EMA for MACD
         ema_12 = hist["Close"].ewm(span=12).mean().iloc[-1]
         ema_26 = hist["Close"].ewm(span=26).mean().iloc[-1]
-
         rsi = self._calculate_rsi(hist["Close"])
         macd, macd_signal = self._calculate_macd(hist["Close"])
-
-        # Bollinger Bands (20-day)
         rolling_mean = hist["Close"].rolling(window=20).mean().iloc[-1]
         rolling_std = hist["Close"].rolling(window=20).std().iloc[-1]
         bollinger_upper = rolling_mean + 2 * rolling_std
@@ -328,15 +300,11 @@ class RatingService:
         return fundamental
 
     def _get_analyst_score(self, symbol: str) -> float:
-        """
-        Use Finnhub recommendation trends. Returns score 0-10.
-        """
         try:
             recs = self.finnhub.get("/stock/recommendation", {"symbol": symbol}) or []
             if not recs:
                 return 5.0
             latest = recs[0]
-            # weight strong buys higher, strong sells lower
             total = (
                 latest.get("strongBuy", 0) * 2
                 + latest.get("buy", 0) * 1
@@ -349,16 +317,14 @@ class RatingService:
             )
             if count == 0:
                 return 5.0
-            # Normalize to -2..2 then map to 0..10
             sentiment = total / max(count, 1)
-            score = (sentiment + 2) * 2.5  # -2 =>0 , +2 =>10
+            score = (sentiment + 2) * 2.5
             return min(max(score, 0), 10)
         except Exception as e:
             print(f"Error getting analyst score: {e}")
             return 5.0
 
     def _get_macro_score(self) -> Dict:
-        """Get macro score with 1-hour caching."""
         if self._macro_cache and self._macro_cache_time:
             if datetime.now() - self._macro_cache_time < timedelta(hours=1):
                 return self._macro_cache
@@ -368,32 +334,24 @@ class RatingService:
         self._macro_cache_time = datetime.now()
         return macro_data
 
-    # ---------- Scoring helpers ----------
     def _calculate_technical_score(self, technical: models.TechnicalIndicator) -> float:
         try:
             score = 5.0
             price = technical.current_price
-
-            # Price vs SMAs
             if price > technical.sma_50:
                 score += 1.5
             if price > technical.sma_200:
                 score += 1.5
             if technical.sma_50 > technical.sma_200:
                 score += 1.0
-
-            # RSI
             if 40 <= technical.rsi <= 60:
                 score += 1.5
             elif 30 <= technical.rsi <= 70:
                 score += 1.0
             elif technical.rsi < 30 or technical.rsi > 70:
                 score += 0.5
-
-            # MACD crossover
             if technical.macd > technical.macd_signal:
                 score += 1.5
-
             return min(max(score, 0), 10)
         except Exception as e:
             print(f"Error calculating technical score: {e}")
@@ -404,7 +362,6 @@ class RatingService:
     ) -> float:
         try:
             score = 5.0
-
             pe_ratio = fundamental.pe_ratio
             if pe_ratio:
                 if 10 <= pe_ratio <= 20:
@@ -413,21 +370,18 @@ class RatingService:
                     score += 1.0
                 elif pe_ratio < 5 or pe_ratio > 50:
                     score -= 0.5
-
             pb_ratio = fundamental.pb_ratio
             if pb_ratio:
                 if 1 <= pb_ratio <= 3:
                     score += 1.0
                 elif pb_ratio < 1:
                     score += 1.5
-
             debt_to_equity = fundamental.debt_to_equity
             if debt_to_equity:
                 if debt_to_equity < 50:
                     score += 1.0
                 elif debt_to_equity > 100:
                     score -= 0.5
-
             profit_margin = fundamental.profit_margin
             if profit_margin:
                 if profit_margin > 0.15:
@@ -436,7 +390,6 @@ class RatingService:
                     score += 1.0
                 elif profit_margin < 0:
                     score -= 1.0
-
             return min(max(score, 0), 10)
         except Exception as e:
             print(f"Error calculating fundamental score: {e}")

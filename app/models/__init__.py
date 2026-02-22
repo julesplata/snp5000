@@ -1,7 +1,8 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship
-from database import Base
 from datetime import datetime
+
+from database import Base
 
 
 class Sector(Base):
@@ -44,29 +45,20 @@ class Rating(Base):
     id = Column(Integer, primary_key=True, index=True)
     stock_id = Column(Integer, ForeignKey("stocks.id"))
 
-    # Overall rating (1-10)
     overall_rating = Column(Float)
+    technical_score = Column(Float, nullable=True)
+    analyst_score = Column(Float, nullable=True)
+    fundamental_score = Column(Float, nullable=True)
+    macro_score = Column(Float, nullable=True)
 
-    # Component ratings
-    technical_score = Column(Float, nullable=True)  # Technical indicators
-    analyst_score = Column(Float, nullable=True)  # Analyst ratings
-    fundamental_score = Column(Float, nullable=True)  # P/E, P/B, etc.
-    macro_score = Column(Float, nullable=True)  # Macroeconomic environment
-
-    # Rating metadata
     rating_date = Column(DateTime, default=datetime.utcnow, index=True)
-    data_sources = Column(JSON, nullable=True)  # Track which sources were used
+    data_sources = Column(JSON, nullable=True)
     notes = Column(Text, nullable=True)
 
     stock = relationship("Stock", back_populates="ratings")
 
 
 class MacroSnapshot(Base):
-    """
-    Stores a single macroeconomic snapshot pulled from external data sources (e.g., FRED).
-    API layer should read from this table to avoid repeated network calls.
-    """
-
     __tablename__ = "macro_snapshots"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -86,26 +78,17 @@ class TechnicalIndicator(Base):
     id = Column(Integer, primary_key=True, index=True)
     stock_id = Column(Integer, ForeignKey("stocks.id"))
 
-    # Moving averages
     sma_50 = Column(Float, nullable=True)
     sma_200 = Column(Float, nullable=True)
     ema_12 = Column(Float, nullable=True)
     ema_26 = Column(Float, nullable=True)
-
-    # Volatility
     bollinger_upper = Column(Float, nullable=True)
     bollinger_lower = Column(Float, nullable=True)
-
-    # Momentum
     rsi = Column(Float, nullable=True)
     macd = Column(Float, nullable=True)
     macd_signal = Column(Float, nullable=True)
-
-    # Latest price captured when indicators were calculated
     current_price = Column(Float, nullable=True)
-
     data_source = Column(String, default="finnhub")
-
     calculated_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -120,7 +103,6 @@ class FundamentalIndicator(Base):
     debt_to_equity = Column(Float, nullable=True)
     profit_margin = Column(Float, nullable=True)
     dividend_yield = Column(Float, nullable=True)
-
     raw_metrics = Column(JSON, nullable=True)
     data_source = Column(String, default="finnhub")
     fetched_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -131,11 +113,9 @@ class AnalystRating(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     stock_id = Column(Integer, ForeignKey("stocks.id"))
-
-    source = Column(String)  # e.g., "Goldman Sachs", "Morgan Stanley"
-    rating = Column(String)  # e.g., "Buy", "Hold", "Sell"
+    source = Column(String)
+    rating = Column(String)
     target_price = Column(Float, nullable=True)
     analyst_name = Column(String, nullable=True)
-
     published_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)

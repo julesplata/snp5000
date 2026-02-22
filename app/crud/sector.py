@@ -2,11 +2,11 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
-import models
-import schemas
+import app.models as models
+import app.schemas as schemas
 
 
-def list_sectors(db: Session, skip: int, limit: int) -> List[models.Sector]:
+def list_sectors(db: Session, skip: int = 0, limit: int = 100) -> List[models.Sector]:
     return db.query(models.Sector).offset(skip).limit(limit).all()
 
 
@@ -26,7 +26,7 @@ def create_sector(db: Session, sector: schemas.SectorCreate) -> models.Sector:
             status_code=400, detail="Sector with this name already exists"
         )
 
-    db_sector = models.Sector(**sector.dict())
+    db_sector = models.Sector(**sector.model_dump())
     db.add(db_sector)
     db.commit()
     db.refresh(db_sector)
