@@ -1,24 +1,10 @@
 import sys
 import time
-import os
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 import models
 from services.rating_service import RatingService
 from datetime import datetime
-from config import get_settings
-
-# Get API keys from .env file
-settings = get_settings()
-
-ALPACA_API_KEY = settings.alpaca_key
-ALPACA_API_SECRET = settings.alpaca_secret
-
-if not ALPACA_API_KEY or not ALPACA_API_SECRET:
-    print("\n" + "=" * 60)
-    print("ERROR: Alpaca API credentials not found!")
-    print("\n" + "=" * 60)
-    sys.exit(1)
 
 
 def create_sectors(db: Session):
@@ -153,13 +139,13 @@ def create_sample_stocks(db: Session, sectors: list, rating_service: RatingServi
 def main():
     """Main function to populate database"""
     print("=" * 60)
-    print("Stock Rating App - Database Population (Alpaca)")
+    print("Stock Rating App - Database Population (Finnhub)")
     print("=" * 60)
 
-    # Initialize Alpaca rating service
-    print("\nInitializing Alpaca API connection...")
-    rating_service = RatingService(ALPACA_API_KEY, ALPACA_API_SECRET)
-    print("✓ Connected to Alpaca API")
+    # Initialize Finnhub-backed rating service
+    print("\nInitializing Finnhub connection...")
+    rating_service = RatingService()
+    print("✓ Finnhub client ready (using free tier)")
 
     # Create database tables
     print("\nCreating database tables...")

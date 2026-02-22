@@ -89,6 +89,8 @@ class TechnicalIndicatorBase(BaseModel):
     macd_signal: Optional[float] = None
     bollinger_upper: Optional[float] = None
     bollinger_lower: Optional[float] = None
+    current_price: Optional[float] = None
+    data_source: Optional[str] = None
 
 
 class TechnicalIndicatorCreate(TechnicalIndicatorBase):
@@ -99,6 +101,30 @@ class TechnicalIndicator(TechnicalIndicatorBase):
     id: int
     stock_id: int
     calculated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Fundamental Indicator Schemas
+class FundamentalIndicatorBase(BaseModel):
+    pe_ratio: Optional[float] = None
+    pb_ratio: Optional[float] = None
+    debt_to_equity: Optional[float] = None
+    profit_margin: Optional[float] = None
+    dividend_yield: Optional[float] = None
+    raw_metrics: Optional[dict] = None
+    data_source: Optional[str] = None
+
+
+class FundamentalIndicatorCreate(FundamentalIndicatorBase):
+    stock_id: int
+
+
+class FundamentalIndicator(FundamentalIndicatorBase):
+    id: int
+    stock_id: int
+    fetched_at: datetime
 
     class Config:
         from_attributes = True

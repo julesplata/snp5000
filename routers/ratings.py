@@ -32,61 +32,30 @@ def get_rating(rating_id: int, db: Session = Depends(get_db)):
     return rating
 
 
-@router.post("/", response_model=schemas.Rating)
-def create_rating(rating: schemas.RatingCreate, db: Session = Depends(get_db)):
-    # Verify stock exists
-    stock = db.query(models.Stock).filter(models.Stock.id == rating.stock_id).first()
-    if not stock:
-        raise HTTPException(status_code=404, detail="Stock not found")
-
-    db_rating = models.Rating(**rating.dict())
-    db.add(db_rating)
-    db.commit()
-    db.refresh(db_rating)
-    return db_rating
-
-
-@router.delete("/{rating_id}")
-def delete_rating(rating_id: int, db: Session = Depends(get_db)):
-    """Delete a rating"""
-    db_rating = db.query(models.Rating).filter(models.Rating.id == rating_id).first()
-    if not db_rating:
-        raise HTTPException(status_code=404, detail="Rating not found")
-
-    db.delete(db_rating)
-    db.commit()
-    return {"message": "Rating deleted successfully"}
-
-
 @router.post("/calculate/{stock_id}", response_model=schemas.Rating)
 def calculate_and_save_rating(stock_id: int, db: Session = Depends(get_db)):
     stock = db.query(models.Stock).filter(models.Stock.id == stock_id).first()
     if not stock:
         raise HTTPException(status_code=404, detail="Stock not found")
 
-    # Placeholder calculation - replace with actual logic
-    # You would fetch data from yfinance, analyst APIs, etc.
-    technical_score = 7.5  # Calculate from technical indicators
-    analyst_score = 8.0  # Calculate from analyst ratings
-    fundamental_score = 6.5  # Calculate from fundamentals
+    from services.rating_service import RatingService
 
-    # Weighted average
-    overall_rating = (
-        technical_score * 0.33 + analyst_score * 0.33 + fundamental_score * 0.33
-    )
+    service = RatingService(db_session=db)
+    rating_data = service.calculate_rating(stock.symbol, db=db)
+    if not rating_data:
+        raise HTTPException(
+            status_code=503, detail="Unable to calculate rating at this time"
+        )
 
     db_rating = models.Rating(
         stock_id=stock_id,
-        overall_rating=round(overall_rating, 2),
-        technical_score=technical_score,
-        analyst_score=analyst_score,
-        fundamental_score=fundamental_score,
-        data_sources={
-            "technical": "calculated",
-            "analyst": "placeholder",
-            "fundamental": "placeholder",
-        },
-        notes="Auto-generated rating",
+        overall_rating=rating_data["overall_rating"],
+        technical_score=rating_data.get("technical_score"),
+        analyst_score=rating_data.get("analyst_score"),
+        fundamental_score=rating_data.get("fundamental_score"),
+        macro_score=rating_data.get("macro_score"),
+        data_sources=rating_data.get("data_sources"),
+        notes="Auto-generated rating (Finnhub)",
     )
 
     db.add(db_rating)

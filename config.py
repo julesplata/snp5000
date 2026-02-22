@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     alpaca_secret: str
     alpaca_key: str
     fred_api_key: str
+    finnhub_api_key: str
     database_url: str
 
     model_config = SettingsConfigDict(

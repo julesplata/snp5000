@@ -30,6 +30,12 @@ class Stock(Base):
     ratings = relationship(
         "Rating", back_populates="stock", cascade="all, delete-orphan"
     )
+    technical_indicators = relationship(
+        "TechnicalIndicator", cascade="all, delete-orphan"
+    )
+    fundamental_indicators = relationship(
+        "FundamentalIndicator", cascade="all, delete-orphan"
+    )
 
 
 class Rating(Base):
@@ -90,7 +96,34 @@ class TechnicalIndicator(Base):
     bollinger_upper = Column(Float, nullable=True)
     bollinger_lower = Column(Float, nullable=True)
 
+    # Momentum
+    rsi = Column(Float, nullable=True)
+    macd = Column(Float, nullable=True)
+    macd_signal = Column(Float, nullable=True)
+
+    # Latest price captured when indicators were calculated
+    current_price = Column(Float, nullable=True)
+
+    data_source = Column(String, default="finnhub")
+
     calculated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class FundamentalIndicator(Base):
+    __tablename__ = "fundamental_indicators"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stock_id = Column(Integer, ForeignKey("stocks.id"))
+
+    pe_ratio = Column(Float, nullable=True)
+    pb_ratio = Column(Float, nullable=True)
+    debt_to_equity = Column(Float, nullable=True)
+    profit_margin = Column(Float, nullable=True)
+    dividend_yield = Column(Float, nullable=True)
+
+    raw_metrics = Column(JSON, nullable=True)
+    data_source = Column(String, default="finnhub")
+    fetched_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
 class AnalystRating(Base):
