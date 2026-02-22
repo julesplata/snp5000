@@ -5,7 +5,7 @@ from services.macro_service import MacroeconomicService
 import os
 from config import get_settings
 from database import get_db
-from services import macro_repository
+from repositories import macro_repository
 
 router = APIRouter()
 

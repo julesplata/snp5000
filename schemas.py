@@ -59,10 +59,6 @@ class RatingBase(BaseModel):
     notes: Optional[str] = None
 
 
-class RatingCreate(RatingBase):
-    stock_id: int
-
-
 class Rating(RatingBase):
     id: int
     stock_id: int
