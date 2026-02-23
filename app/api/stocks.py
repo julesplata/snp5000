@@ -40,19 +40,6 @@ def create_stock(stock: schemas.StockCreate, db: Session = Depends(get_db)):
     return stock_crud.create_stock(db, stock)
 
 
-@router.put("/{stock_id}", response_model=schemas.Stock)
-def update_stock(
-    stock_id: int, stock: schemas.StockUpdate, db: Session = Depends(get_db)
-):
-    return stock_crud.update_stock(db, stock_id, stock)
-
-
-@router.delete("/{stock_id}")
-def delete_stock(stock_id: int, db: Session = Depends(get_db)):
-    stock_crud.delete_stock(db, stock_id)
-    return {"message": "Stock deleted successfully"}
-
-
 @router.get("/{stock_id}/history", response_model=schemas.RatingHistoryResponse)
 def get_stock_rating_history(stock_id: int, db: Session = Depends(get_db)):
     return stock_crud.get_rating_history(db, stock_id)

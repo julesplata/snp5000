@@ -49,9 +49,11 @@ def list_stocks(
             if max_rating and latest_rating.overall_rating > max_rating:
                 continue
 
-            stock_dict["latest_rating"] = schemas.Rating.model_validate(
-                latest_rating
-            ).model_dump()
+            rating_dict = schemas.Rating.model_validate(latest_rating).model_dump()
+            for k in ["overall_rating", "technical_score", "analyst_score", "fundamental_score", "macro_score"]:
+                if k in rating_dict:
+                    rating_dict[k] = _r2(rating_dict[k])
+            stock_dict["latest_rating"] = rating_dict
 
             if len(sorted_ratings) >= 2:
                 curr, prev = (
@@ -92,7 +94,11 @@ def get_stock(db: Session, stock_id: int) -> schemas.StockWithLatestRating:
 
     if stock.ratings:
         latest_rating = max(stock.ratings, key=lambda r: r.rating_date)
-        stock_dict["latest_rating"] = schemas.Rating.from_orm(latest_rating).dict()
+        rd = schemas.Rating.from_orm(latest_rating).dict()
+        for k in ["overall_rating", "technical_score", "analyst_score", "fundamental_score", "macro_score"]:
+            if k in rd:
+                rd[k] = _r2(rd[k])
+        stock_dict["latest_rating"] = rd
 
         if len(stock.ratings) >= 2:
             sorted_ratings = sorted(
@@ -129,28 +135,6 @@ def create_stock(db: Session, stock: schemas.StockCreate) -> models.Stock:
     return db_stock
 
 
-def update_stock(db: Session, stock_id: int, stock: schemas.StockUpdate) -> models.Stock:
-    db_stock = db.query(models.Stock).filter(models.Stock.id == stock_id).first()
-    if not db_stock:
-        raise HTTPException(status_code=404, detail="Stock not found")
-
-    update_data = stock.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_stock, field, value)
-
-    db.commit()
-    db.refresh(db_stock)
-    return db_stock
-
-
-def delete_stock(db: Session, stock_id: int) -> None:
-    db_stock = db.query(models.Stock).filter(models.Stock.id == stock_id).first()
-    if not db_stock:
-        raise HTTPException(status_code=404, detail="Stock not found")
-
-    db.delete(db_stock)
-    db.commit()
-
 
 def get_rating_history(db: Session, stock_id: int) -> schemas.RatingHistoryResponse:
     stock = (
@@ -171,3 +155,5 @@ def get_rating_history(db: Session, stock_id: int) -> schemas.RatingHistoryRespo
     )
 
     return schemas.RatingHistoryResponse(stock=stock, ratings=ratings)
+def _r2(val):
+    return round(float(val), 2) if isinstance(val, (int, float)) and val is not None else val

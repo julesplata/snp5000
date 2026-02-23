@@ -130,6 +130,33 @@ class FundamentalIndicator(FundamentalIndicatorBase):
         from_attributes = True
 
 
+# News Schemas
+class NewsArticleBase(BaseModel):
+    title: str
+    summary: Optional[str] = None
+    content: Optional[str] = None
+    url: str
+    source: Optional[str] = None
+    author: Optional[str] = None
+    published_at: datetime
+    sentiment_score: Optional[float] = None
+    sentiment_label: Optional[str] = None
+    category: Optional[str] = None
+
+
+class NewsArticleCreate(NewsArticleBase):
+    stock_id: int
+
+
+class NewsArticle(NewsArticleBase):
+    id: int
+    stock_id: int
+    fetched_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # Analyst Rating Schemas
 class AnalystRatingBase(BaseModel):
     source: str

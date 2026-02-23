@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Index
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from datetime import datetime
 
 from database import Base
@@ -36,6 +37,9 @@ class Stock(Base):
     )
     fundamental_indicators = relationship(
         "FundamentalIndicator", cascade="all, delete-orphan"
+    )
+    news_articles = relationship(
+        "NewsArticle", back_populates="stock", cascade="all, delete-orphan"
     )
 
 
@@ -119,3 +123,37 @@ class AnalystRating(Base):
     analyst_name = Column(String, nullable=True)
     published_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class NewsArticle(Base):
+    __tablename__ = "news_articles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stock_id = Column(Integer, ForeignKey("stocks.id"), index=True)
+
+    title = Column(String(500), nullable=False)
+    summary = Column(Text, nullable=True)
+    content = Column(Text, nullable=True)
+    url = Column(String(1000), unique=True, index=True)
+
+    source = Column(String(100), index=True)
+    author = Column(String(200), nullable=True)
+
+    published_at = Column(DateTime, index=True)
+    fetched_at = Column(DateTime, default=datetime.utcnow)
+
+    sentiment_score = Column(Float, nullable=True)
+    sentiment_label = Column(String(20), nullable=True)
+
+    category = Column(String(50), nullable=True, index=True)
+
+    search_vector = Column(TSVECTOR)
+
+    stock = relationship("Stock", back_populates="news_articles")
+
+    __table_args__ = (
+        Index("idx_stock_date", "stock_id", "published_at"),
+        Index("idx_source_date", "source", "published_at"),
+        Index("idx_sentiment", "sentiment_label", "sentiment_score"),
+        Index("idx_search", "search_vector", postgresql_using="gin"),
+    )
