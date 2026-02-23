@@ -6,6 +6,7 @@ import os
 from database import get_db
 from services.macro_service import MacroeconomicService
 import app.crud.macro_snapshot as macro_crud
+import app.schemas as schemas
 from config import get_settings
 
 router = APIRouter()
@@ -15,7 +16,11 @@ macro_service = MacroeconomicService(api_key=settings.fred_api_key)
 
 
 def _r2(val):
-    return round(float(val), 2) if isinstance(val, (int, float)) and val is not None else val
+    return (
+        round(float(val), 2)
+        if isinstance(val, (int, float)) and val is not None
+        else val
+    )
 
 
 def _normalize_snapshot(snapshot) -> Dict[str, Any]:
@@ -88,7 +93,7 @@ def refresh_macro_data(db: Session = Depends(get_db)):
         )
 
 
-@router.get("/health")
+@router.get("/health", response_model=schemas.MacroHealth)
 def check_macro_service():
     has_api_key = bool(os.getenv("FRED_API_KEY"))
     if not has_api_key:

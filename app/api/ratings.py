@@ -12,7 +12,10 @@ router = APIRouter()
 
 @router.get("/", response_model=List[schemas.Rating])
 def list_ratings(
-    skip: int = 0, limit: int = 100, stock_id: Optional[int] = None, db: Session = Depends(get_db)
+    skip: int = 0,
+    limit: int = 100,
+    stock_id: Optional[int] = None,
+    db: Session = Depends(get_db),
 ):
     return rating_crud.list_ratings(db, skip=skip, limit=limit, stock_id=stock_id)
 

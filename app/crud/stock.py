@@ -9,8 +9,8 @@ import app.schemas as schemas
 
 def list_stocks(
     db: Session,
-    page: int,
-    page_size: int,
+    skip: int,
+    limit: int,
     sector_id: Optional[int],
     min_rating: Optional[float],
     max_rating: Optional[float],
@@ -31,8 +31,7 @@ def list_stocks(
             )
         )
 
-    offset_value = (page - 1) * page_size
-    stocks = query.offset(offset_value).limit(page_size).all()
+    stocks = query.offset(skip).limit(limit).all()
 
     result = []
     for stock in stocks:
@@ -50,7 +49,13 @@ def list_stocks(
                 continue
 
             rating_dict = schemas.Rating.model_validate(latest_rating).model_dump()
-            for k in ["overall_rating", "technical_score", "analyst_score", "fundamental_score", "macro_score"]:
+            for k in [
+                "overall_rating",
+                "technical_score",
+                "analyst_score",
+                "fundamental_score",
+                "macro_score",
+            ]:
                 if k in rating_dict:
                     rating_dict[k] = _r2(rating_dict[k])
             stock_dict["latest_rating"] = rating_dict
@@ -95,7 +100,13 @@ def get_stock(db: Session, stock_id: int) -> schemas.StockWithLatestRating:
     if stock.ratings:
         latest_rating = max(stock.ratings, key=lambda r: r.rating_date)
         rd = schemas.Rating.from_orm(latest_rating).dict()
-        for k in ["overall_rating", "technical_score", "analyst_score", "fundamental_score", "macro_score"]:
+        for k in [
+            "overall_rating",
+            "technical_score",
+            "analyst_score",
+            "fundamental_score",
+            "macro_score",
+        ]:
             if k in rd:
                 rd[k] = _r2(rd[k])
         stock_dict["latest_rating"] = rd
@@ -135,7 +146,6 @@ def create_stock(db: Session, stock: schemas.StockCreate) -> models.Stock:
     return db_stock
 
 
-
 def get_rating_history(db: Session, stock_id: int) -> schemas.RatingHistoryResponse:
     stock = (
         db.query(models.Stock)
@@ -155,5 +165,11 @@ def get_rating_history(db: Session, stock_id: int) -> schemas.RatingHistoryRespo
     )
 
     return schemas.RatingHistoryResponse(stock=stock, ratings=ratings)
+
+
 def _r2(val):
-    return round(float(val), 2) if isinstance(val, (int, float)) and val is not None else val
+    return (
+        round(float(val), 2)
+        if isinstance(val, (int, float)) and val is not None
+        else val
+    )

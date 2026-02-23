@@ -1,4 +1,14 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Index
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Float,
+    DateTime,
+    ForeignKey,
+    Text,
+    JSON,
+    Index,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from datetime import datetime

@@ -11,8 +11,8 @@ router = APIRouter()
 
 @router.get("/", response_model=List[schemas.StockWithLatestRating])
 def list_stocks(
-    page: int = 1,
-    page_size: int = 10,
+    skip: int = 0,
+    limit: int = 10,
     sector_id: Optional[int] = None,
     min_rating: Optional[float] = None,
     max_rating: Optional[float] = None,
@@ -21,8 +21,8 @@ def list_stocks(
 ):
     return stock_crud.list_stocks(
         db=db,
-        page=page,
-        page_size=page_size,
+        skip=skip,
+        limit=limit,
         sector_id=sector_id,
         min_rating=min_rating,
         max_rating=max_rating,

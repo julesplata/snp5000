@@ -13,25 +13,30 @@
         ],
         "summary": "List Stocks",
         "operationId": "list_stocks_api_stocks__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
-            "name": "page",
+            "name": "skip",
             "in": "query",
             "required": false,
             "schema": {
               "type": "integer",
-              "default": 1,
-              "title": "Page"
+              "default": 0,
+              "title": "Skip"
             }
           },
           {
-            "name": "page_size",
+            "name": "limit",
             "in": "query",
             "required": false,
             "schema": {
               "type": "integer",
               "default": 10,
-              "title": "Page Size"
+              "title": "Limit"
             }
           },
           {
@@ -132,6 +137,11 @@
         ],
         "summary": "Create Stock",
         "operationId": "create_stock_api_stocks__post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -173,6 +183,11 @@
         ],
         "summary": "Get Stock",
         "operationId": "get_stock_api_stocks__stock_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "stock_id",
@@ -215,6 +230,11 @@
         ],
         "summary": "Get Stock Rating History",
         "operationId": "get_stock_rating_history_api_stocks__stock_id__history_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "stock_id",
@@ -257,6 +277,11 @@
         ],
         "summary": "List Ratings",
         "operationId": "list_ratings_api_ratings__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "skip",
@@ -330,6 +355,11 @@
         ],
         "summary": "Get Rating",
         "operationId": "get_rating_api_ratings__rating_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "rating_id",
@@ -372,6 +402,11 @@
         ],
         "summary": "Calculate And Save Rating",
         "operationId": "calculate_and_save_rating_api_ratings_calculate__stock_id__post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "stock_id",
@@ -414,6 +449,11 @@
         ],
         "summary": "List Sectors",
         "operationId": "list_sectors_api_sectors__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "skip",
@@ -469,6 +509,11 @@
         ],
         "summary": "Create Sector",
         "operationId": "create_sector_api_sectors__post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -510,6 +555,11 @@
         ],
         "summary": "Get Sector",
         "operationId": "get_sector_api_sectors__sector_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "sector_id",
@@ -550,6 +600,11 @@
         ],
         "summary": "Delete Sector",
         "operationId": "delete_sector_api_sectors__sector_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "sector_id",
@@ -604,7 +659,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/api/macro/indicators": {
@@ -626,7 +686,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/api/macro/refresh": {
@@ -648,7 +713,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/api/macro/health": {
@@ -664,7 +734,177 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "$ref": "#/components/schemas/MacroHealth"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/stocks/{stock_id}/news": {
+      "get": {
+        "tags": [
+          "news"
+        ],
+        "summary": "List News",
+        "operationId": "list_news_api_stocks__stock_id__news_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "stock_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Stock Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NewsArticle"
+                  },
+                  "title": "Response List News Api Stocks  Stock Id  News Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stocks/{stock_id}/news/summary": {
+      "get": {
+        "tags": [
+          "news"
+        ],
+        "summary": "News Summary",
+        "operationId": "news_summary_api_stocks__stock_id__news_summary_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "stock_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Stock Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewsSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stocks/{stock_id}/news/refresh": {
+      "post": {
+        "tags": [
+          "news"
+        ],
+        "summary": "Refresh News",
+        "operationId": "refresh_news_api_stocks__stock_id__news_refresh_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "stock_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Stock Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
 
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -705,6 +945,221 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "MacroHealth": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "warning",
+              "error",
+              "degraded"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "recommendation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommendation"
+          },
+          "sample_data": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "MacroHealth"
+      },
+      "NewsArticle": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "title": "Url"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Published At"
+          },
+          "sentiment_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentiment Score"
+          },
+          "sentiment_label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "positive",
+                  "negative",
+                  "neutral"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentiment Label"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "earnings",
+                  "merger",
+                  "product",
+                  "guidance",
+                  "general"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "stock_id": {
+            "type": "integer",
+            "title": "Stock Id"
+          },
+          "fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fetched At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "url",
+          "published_at",
+          "id",
+          "stock_id",
+          "fetched_at"
+        ],
+        "title": "NewsArticle"
+      },
+      "NewsSummary": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "headlines": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Headlines"
+          },
+          "sources": {
+            "type": "object",
+            "title": "Sources"
+          },
+          "latest_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Published At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "headlines",
+          "sources",
+          "latest_published_at"
+        ],
+        "title": "NewsSummary"
       },
       "Rating": {
         "properties": {
@@ -1083,7 +1538,13 @@
           "rating_trend": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down",
+                  "stable",
+                  "new"
+                ]
               },
               {
                 "type": "null"
@@ -1134,6 +1595,13 @@
           "type"
         ],
         "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization"
       }
     }
   }

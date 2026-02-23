@@ -27,7 +27,11 @@ class NewsService:
 
         data = self.client.get(
             "/company-news",
-            {"symbol": symbol, "from": from_date.isoformat(), "to": to_date.isoformat()},
+            {
+                "symbol": symbol,
+                "from": from_date.isoformat(),
+                "to": to_date.isoformat(),
+            },
         )
         if not data:
             return 0

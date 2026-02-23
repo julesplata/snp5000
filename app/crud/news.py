@@ -8,7 +8,11 @@ import app.schemas as schemas
 
 
 def _r2(val):
-    return round(float(val), 2) if isinstance(val, (int, float)) and val is not None else val
+    return (
+        round(float(val), 2)
+        if isinstance(val, (int, float)) and val is not None
+        else val
+    )
 
 
 def list_news(db: Session, stock_id: int, limit: int = 50) -> List[models.NewsArticle]:
@@ -24,7 +28,11 @@ def list_news(db: Session, stock_id: int, limit: int = 50) -> List[models.NewsAr
 def upsert_articles(db: Session, stock_id: int, articles: List[dict]) -> int:
     inserted = 0
     for art in articles:
-        if db.query(models.NewsArticle).filter(models.NewsArticle.url == art["url"]).first():
+        if (
+            db.query(models.NewsArticle)
+            .filter(models.NewsArticle.url == art["url"])
+            .first()
+        ):
             continue  # skip duplicates by URL
         db_article = models.NewsArticle(
             stock_id=stock_id,

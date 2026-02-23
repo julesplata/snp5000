@@ -17,7 +17,7 @@ def list_news(stock_id: int, limit: int = 50, db: Session = Depends(get_db)):
     return articles
 
 
-@router.get("/stocks/{stock_id}/news/summary")
+@router.get("/stocks/{stock_id}/news/summary", response_model=schemas.NewsSummary)
 def news_summary(stock_id: int, limit: int = 20, db: Session = Depends(get_db)):
     return news_crud.summarize_news(db, stock_id, limit)
 

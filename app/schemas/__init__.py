@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel
+from typing import Optional, List, Literal
+from pydantic import BaseModel, Field
+
 
 # Sector Schemas
 class SectorBase(BaseModel):
@@ -75,7 +76,7 @@ class Rating(RatingBase):
 
 class StockWithLatestRating(Stock):
     latest_rating: Optional[Rating] = None
-    rating_trend: Optional[str] = None
+    rating_trend: Optional[Literal["up", "down", "stable", "new"]] = None
 
 
 # Technical Indicator Schemas
@@ -135,13 +136,15 @@ class NewsArticleBase(BaseModel):
     title: str
     summary: Optional[str] = None
     content: Optional[str] = None
-    url: str
+    url: str = Field(..., format="uri")
     source: Optional[str] = None
     author: Optional[str] = None
     published_at: datetime
     sentiment_score: Optional[float] = None
-    sentiment_label: Optional[str] = None
-    category: Optional[str] = None
+    sentiment_label: Optional[Literal["positive", "negative", "neutral"]] = None
+    category: Optional[
+        Literal["earnings", "merger", "product", "guidance", "general"]
+    ] = None
 
 
 class NewsArticleCreate(NewsArticleBase):
@@ -155,6 +158,20 @@ class NewsArticle(NewsArticleBase):
 
     class Config:
         from_attributes = True
+
+
+class NewsSummary(BaseModel):
+    count: int
+    headlines: List[str]
+    sources: dict
+    latest_published_at: Optional[datetime]
+
+
+class MacroHealth(BaseModel):
+    status: Literal["healthy", "warning", "error", "degraded"]
+    message: str
+    recommendation: Optional[str] = None
+    sample_data: Optional[str] = None
 
 
 # Analyst Rating Schemas
