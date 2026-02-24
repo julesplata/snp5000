@@ -71,7 +71,8 @@ class RatingService:
         self.finnhub = FinnhubClient(
             finnhub_api_key or os.getenv("FINNHUB_API_KEY") or settings.finnhub_api_key
         )
-        self.macro_service = MacroeconomicService()
+        fred_key = settings.fred_api_key if hasattr(settings, "fred_api_key") else os.getenv("FRED_API_KEY")
+        self.macro_service = MacroeconomicService(api_key=fred_key)
 
         self._macro_cache = None
         self._macro_cache_time = None

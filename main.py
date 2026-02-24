@@ -1,11 +1,10 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 import uvicorn
 
 import app.models  # noqa: F401 ensures models are registered
 from app.api import stocks, ratings, sectors, macro, news
-from app.security import get_api_key_optional
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -26,36 +25,11 @@ app.add_middleware(
 )
 
 # routers
-app.include_router(
-    stocks.router,
-    prefix="/api/stocks",
-    tags=["stocks"],
-    dependencies=[Depends(get_api_key_optional)],
-)
-app.include_router(
-    ratings.router,
-    prefix="/api/ratings",
-    tags=["ratings"],
-    dependencies=[Depends(get_api_key_optional)],
-)
-app.include_router(
-    sectors.router,
-    prefix="/api/sectors",
-    tags=["sectors"],
-    dependencies=[Depends(get_api_key_optional)],
-)
-app.include_router(
-    macro.router,
-    prefix="/api/macro",
-    tags=["macroeconomics"],
-    dependencies=[Depends(get_api_key_optional)],
-)
-app.include_router(
-    news.router,
-    prefix="/api",
-    tags=["news"],
-    dependencies=[Depends(get_api_key_optional)],
-)
+app.include_router(stocks.router, prefix="/api/stocks", tags=["stocks"])
+app.include_router(ratings.router, prefix="/api/ratings", tags=["ratings"])
+app.include_router(sectors.router, prefix="/api/sectors", tags=["sectors"])
+app.include_router(macro.router, prefix="/api/macro", tags=["macroeconomics"])
+app.include_router(news.router, prefix="/api", tags=["news"])
 
 
 @app.get("/health")
