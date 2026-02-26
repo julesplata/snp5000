@@ -4,7 +4,7 @@ from database import engine, Base
 import uvicorn
 
 import app.models  # noqa: F401 ensures models are registered
-from app.api import stocks, ratings, sectors, macro, news
+from app.api import stocks, ratings, sectors, macro, news, quotes
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -30,6 +30,7 @@ app.include_router(ratings.router, prefix="/api/ratings", tags=["ratings"])
 app.include_router(sectors.router, prefix="/api/sectors", tags=["sectors"])
 app.include_router(macro.router, prefix="/api/macro", tags=["macroeconomics"])
 app.include_router(news.router, prefix="/api", tags=["news"])
+app.include_router(quotes.router, prefix="/api", tags=["quotes"])
 
 
 @app.get("/health")
