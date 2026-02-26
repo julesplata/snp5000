@@ -50,8 +50,20 @@ class NewsService:
                     "published_at": published,
                     "sentiment_score": None,
                     "sentiment_label": None,
-                    "category": item.get("category"),
+                    "category": self._normalize_category(item.get("category")),
                 }
             )
 
         return news_crud.upsert_articles(db, stock_id, articles)
+
+    @staticmethod
+    def _normalize_category(category: str | None) -> str | None:
+        """Map provider categories into our allowed set to avoid response validation errors."""
+        if not category:
+            return None
+        allowed = {"earnings", "merger", "product", "guidance", "general", "company"}
+        value = category.lower()
+        if value in allowed:
+            return value
+        # Default any unknown bucket to "general" so responses stay valid
+        return "general"

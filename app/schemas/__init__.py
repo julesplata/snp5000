@@ -143,7 +143,7 @@ class NewsArticleBase(BaseModel):
     sentiment_score: Optional[float] = None
     sentiment_label: Optional[Literal["positive", "negative", "neutral"]] = None
     category: Optional[
-        Literal["earnings", "merger", "product", "guidance", "general"]
+        Literal["earnings", "merger", "product", "guidance", "general", "company"]
     ] = None
 
 

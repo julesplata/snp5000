@@ -58,7 +58,7 @@ def upsert_articles(db: Session, stock_id: int, articles: List[dict]) -> int:
 
 
 def summarize_news(db: Session, stock_id: int, limit: int = 20) -> dict:
-    articles = list_news(db, stock_id, limit)
+    articles = list_news(db, stock_id, limit=limit)
     headlines = [a.title for a in articles]
     sources = {}
     for a in articles:
