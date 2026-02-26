@@ -1,10 +1,11 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 import uvicorn
 
 import app.models  # noqa: F401 ensures models are registered
 from app.api import stocks, ratings, sectors, macro, news, quotes
+from app.utils.rate_limiter import rate_limiter
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -13,6 +14,7 @@ app = FastAPI(
     title="Stock Rating API",
     description="API for stock ratings combining multiple data sources",
     version="1.0.0",
+    dependencies=[Depends(rate_limiter)],
 )
 
 # CORS middleware for frontend local
