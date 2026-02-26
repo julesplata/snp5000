@@ -17,4 +17,3 @@ def list_sectors(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
 @router.get("/{sector_id}", response_model=schemas.Sector)
 def get_sector(sector_id: int, db: Session = Depends(get_db)):
     return sector_crud.get_sector(db, sector_id)
-

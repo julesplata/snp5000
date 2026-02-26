@@ -14,7 +14,9 @@ service = QuoteService()
 def refresh_quote(stock_id: int, db: Session = Depends(get_db)):
     updated = service.refresh_quote(db, stock_id)
     if not updated:
-        raise HTTPException(status_code=404, detail="Stock not found or quote unavailable")
+        raise HTTPException(
+            status_code=404, detail="Stock not found or quote unavailable"
+        )
     return updated
 
 
