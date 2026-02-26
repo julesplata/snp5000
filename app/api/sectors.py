@@ -18,13 +18,3 @@ def list_sectors(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
 def get_sector(sector_id: int, db: Session = Depends(get_db)):
     return sector_crud.get_sector(db, sector_id)
 
-
-@router.post("/", response_model=schemas.Sector)
-def create_sector(sector: schemas.SectorCreate, db: Session = Depends(get_db)):
-    return sector_crud.create_sector(db, sector)
-
-
-@router.delete("/{sector_id}")
-def delete_sector(sector_id: int, db: Session = Depends(get_db)):
-    sector_crud.delete_sector(db, sector_id)
-    return {"message": "Sector deleted successfully"}
