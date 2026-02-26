@@ -12,8 +12,13 @@ service = NewsService()
 
 
 @router.get("/stocks/{stock_id}/news", response_model=List[schemas.NewsArticle])
-def list_news(stock_id: int, limit: int = 50, db: Session = Depends(get_db)):
-    articles = news_crud.list_news(db, stock_id, limit)
+def list_news(
+    stock_id: int,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    articles = news_crud.list_news(db, stock_id, skip=skip, limit=limit)
     return articles
 
 
