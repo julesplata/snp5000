@@ -12,3 +12,4 @@ black
 flake8
 pydantic-settings
 redis==5.0.1
+gunicorn==21.2.0
