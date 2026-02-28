@@ -1,12 +1,51 @@
 import time
 import asyncio
 from collections import defaultdict, deque
-from typing import Deque, DefaultDict
+from typing import Deque, DefaultDict, Optional
 
 from fastapi import HTTPException, Request
 
+try:
+    from redis.asyncio import Redis
+except ImportError:  # pragma: no cover - redis not installed
+    Redis = None  # type: ignore
 
-class InMemoryRateLimiter:
+
+class BaseRateLimiter:
+    async def __call__(self, request: Request):
+        raise NotImplementedError
+
+
+class RedisRateLimiter(BaseRateLimiter):
+    """
+    Shared rate limiter using Redis.
+    Sliding window approximation with INCR+EXPIRE per client IP.
+    """
+
+    def __init__(
+        self,
+        redis: Redis,
+        max_requests: int = 60,
+        window_seconds: int = 60,
+        prefix: str = "ratelimit",
+    ):
+        self.redis = redis
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.prefix = prefix
+
+    async def __call__(self, request: Request):
+        client_ip = request.client.host if request.client else "anonymous"
+        key = f"{self.prefix}:{client_ip}"
+        pipe = self.redis.pipeline()
+        pipe.incr(key, 1)
+        pipe.expire(key, self.window_seconds)
+        current, _ = await pipe.execute()
+        if current and int(current) > self.max_requests:
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+
+class InMemoryRateLimiter(BaseRateLimiter):
     """
     Lightweight in-process rate limiter.
     Uses a sliding window per client IP: max_requests within window_seconds.
@@ -32,5 +71,17 @@ class InMemoryRateLimiter:
             window.append(now)
 
 
-# Default instance: 60 requests per minute per client IP
-rate_limiter = InMemoryRateLimiter(max_requests=60, window_seconds=60)
+# Factory to select limiter at import time
+def build_rate_limiter(
+    redis_client: Optional[Redis],
+    max_requests: int,
+    window_seconds: int,
+):
+    if redis_client:
+        return RedisRateLimiter(
+            redis=redis_client,
+            max_requests=max_requests,
+            window_seconds=window_seconds,
+        )
+    return InMemoryRateLimiter(max_requests=max_requests, window_seconds=window_seconds)
+

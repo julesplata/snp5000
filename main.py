@@ -1,3 +1,4 @@
+import logging
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
@@ -5,10 +6,28 @@ import uvicorn
 
 import app.models  # noqa: F401 ensures models are registered
 from app.api import stocks, ratings, sectors, macro, news, quotes
-from app.utils.rate_limiter import rate_limiter
+from app.utils.rate_limiter import build_rate_limiter
+from config import get_settings
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+settings = get_settings()
+
+redis_client = None
+if settings.redis_url:
+    try:
+        from redis.asyncio import Redis
+
+        redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
+    except Exception:  # pragma: no cover - best-effort optional dependency
+        redis_client = None
+
+rate_limiter = build_rate_limiter(
+    redis_client=redis_client,
+    max_requests=settings.rate_limit_max_requests,
+    window_seconds=settings.rate_limit_window_seconds,
+)
+
+# NOTE: In production, manage schema with Alembic migrations instead of create_all
+# Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Stock Rating API",
@@ -20,7 +39,7 @@ app = FastAPI(
 # CORS middleware for frontend local
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,4 +60,12 @@ def health_check():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    logging.basicConfig(level=settings.log_level)
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=False,
+        workers=settings.workers,
+        log_level=settings.log_level.lower(),
+    )

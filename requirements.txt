@@ -11,3 +11,4 @@ requests==2.31.0
 black
 flake8
 pydantic-settings
+redis==5.0.1
