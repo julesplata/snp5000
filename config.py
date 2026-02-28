@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     redis_url: str | None = None
     log_level: str = "INFO"
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
-    workers: int = 4
+    # Default to 1 worker for low-memory deploy tiers; override via env WORKERS
+    workers: int = 1
     rate_limit_max_requests: int = 60
     rate_limit_window_seconds: int = 60
 
