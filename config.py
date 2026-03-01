@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
-from typing import List
+from typing import List, Union
 from pydantic import field_validator
 import json
 
@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str | None = None
     log_level: str = "INFO"
-    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    # Accepts list or string from env; validator normalizes to list[str]
+    allowed_origins: Union[list[str], str] = ["http://localhost:3000", "http://localhost:5173"]
     # Default to 1 worker for low-memory deploy tiers; override via env WORKERS
     workers: int = 1
     rate_limit_max_requests: int = 60
