@@ -34,17 +34,32 @@ class Settings(BaseSettings):
         try:
             if isinstance(v, str):
                 raw = v.strip()
+                # Remove optional wrapping quotes around the whole string
+                if (raw.startswith('"') and raw.endswith('"')) or (raw.startswith("'") and raw.endswith("'")):
+                    raw = raw[1:-1]
                 if raw.startswith("["):
                     # Try JSON array, e.g. ["https://a","https://b"]
                     loaded = json.loads(raw)
                     if isinstance(loaded, list):
-                        parsed = [str(item).strip() for item in loaded if str(item).strip()]
+                        parsed = [
+                            str(item).strip().strip('\"').strip("'")
+                            for item in loaded
+                            if str(item).strip()
+                        ]
                         return parsed or default
                 # Accept comma separated values
-                parsed = [origin.strip() for origin in raw.split(",") if origin.strip()]
+                parsed = [
+                    origin.strip().strip('\"').strip("'")
+                    for origin in raw.split(",")
+                    if origin.strip()
+                ]
                 return parsed or default
             if isinstance(v, list):
-                parsed = [str(item).strip() for item in v if str(item).strip()]
+                parsed = [
+                    str(item).strip().strip('\"').strip("'")
+                    for item in v
+                    if str(item).strip()
+                ]
                 return parsed or default
         except Exception:
             return default
