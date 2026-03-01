@@ -84,4 +84,3 @@ def build_rate_limiter(
             window_seconds=window_seconds,
         )
     return InMemoryRateLimiter(max_requests=max_requests, window_seconds=window_seconds)
-

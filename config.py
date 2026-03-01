@@ -30,7 +30,7 @@ class Settings(BaseSettings):
         """
         Allow ALLOWED_ORIGINS to be provided as a JSON array or comma-separated string.
         """
-        default = ["http://localhost:3000", "http://localhost:5173"]
+        default = ["http://localhost:3000", "http://localhost:5173","https://972f2674.frontend-dfs.pages.dev"]
         try:
             if isinstance(v, str):
                 raw = v.strip()
