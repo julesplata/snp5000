@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import List
 from pydantic import field_validator
+import json
 
 
 class Settings(BaseSettings):
@@ -29,8 +30,18 @@ class Settings(BaseSettings):
         Allow ALLOWED_ORIGINS to be provided as a JSON array or comma-separated string.
         """
         if isinstance(v, str):
+            raw = v.strip()
+            if raw.startswith("["):
+                # Try JSON array, e.g. ["https://a","https://b"]
+                try:
+                    loaded = json.loads(raw)
+                    if isinstance(loaded, list):
+                        return [str(item).strip() for item in loaded if str(item).strip()]
+                except Exception:
+                    # fall through to comma parsing if JSON fails
+                    pass
             # Accept comma separated values
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
+            return [origin.strip() for origin in raw.split(",") if origin.strip()]
         return v
 
 
