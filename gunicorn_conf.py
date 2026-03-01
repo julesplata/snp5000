@@ -7,7 +7,8 @@ auto_workers = multiprocessing.cpu_count() * 2 + 1
 workers = int(os.getenv("WORKERS", default_workers))
 workers = max(1, min(workers, auto_workers))
 
-bind = "0.0.0.0:8000"
+bind_port = os.getenv("PORT", "8000")
+bind = f"0.0.0.0:{bind_port}"
 worker_class = "uvicorn.workers.UvicornWorker"
 timeout = int(os.getenv("TIMEOUT", 30))
 graceful_timeout = int(os.getenv("GRACEFUL_TIMEOUT", 30))
