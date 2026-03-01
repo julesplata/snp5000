@@ -29,20 +29,25 @@ class Settings(BaseSettings):
         """
         Allow ALLOWED_ORIGINS to be provided as a JSON array or comma-separated string.
         """
-        if isinstance(v, str):
-            raw = v.strip()
-            if raw.startswith("["):
-                # Try JSON array, e.g. ["https://a","https://b"]
-                try:
+        default = ["http://localhost:3000", "http://localhost:5173"]
+        try:
+            if isinstance(v, str):
+                raw = v.strip()
+                if raw.startswith("["):
+                    # Try JSON array, e.g. ["https://a","https://b"]
                     loaded = json.loads(raw)
                     if isinstance(loaded, list):
-                        return [str(item).strip() for item in loaded if str(item).strip()]
-                except Exception:
-                    # fall through to comma parsing if JSON fails
-                    pass
-            # Accept comma separated values
-            return [origin.strip() for origin in raw.split(",") if origin.strip()]
-        return v
+                        parsed = [str(item).strip() for item in loaded if str(item).strip()]
+                        return parsed or default
+                # Accept comma separated values
+                parsed = [origin.strip() for origin in raw.split(",") if origin.strip()]
+                return parsed or default
+            if isinstance(v, list):
+                parsed = [str(item).strip() for item in v if str(item).strip()]
+                return parsed or default
+        except Exception:
+            return default
+        return default
 
 
 @lru_cache
