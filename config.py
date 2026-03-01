@@ -1,5 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+from typing import List
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -19,6 +21,17 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow"
     )
+
+    @field_validator("allowed_origins", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, v):
+        """
+        Allow ALLOWED_ORIGINS to be provided as a JSON array or comma-separated string.
+        """
+        if isinstance(v, str):
+            # Accept comma separated values
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
 
 @lru_cache
