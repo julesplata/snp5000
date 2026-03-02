@@ -3,6 +3,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 import uvicorn
+import os
 
 import app.models  # noqa: F401 ensures models are registered
 from app.api import stocks, ratings, sectors, macro, news, quotes

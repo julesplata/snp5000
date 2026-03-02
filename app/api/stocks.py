@@ -9,7 +9,11 @@ import app.crud.stock as stock_crud
 router = APIRouter()
 
 
-@router.get("/", response_model=List[schemas.StockWithLatestRating])
+@router.get(
+    "/",
+    response_model=List[schemas.StockWithLatestRating],
+    response_model_exclude={"latest_rating": {"data_sources"}},
+)
 def list_stocks(
     skip: int = 0,
     limit: int = 10,
@@ -30,7 +34,11 @@ def list_stocks(
     )
 
 
-@router.get("/{stock_id}", response_model=schemas.StockWithLatestRating)
+@router.get(
+    "/{stock_id}",
+    response_model=schemas.StockWithLatestRating,
+    response_model_exclude={"latest_rating": {"data_sources"}},
+)
 def get_stock(stock_id: int, db: Session = Depends(get_db)):
     return stock_crud.get_stock(db, stock_id)
 
@@ -40,6 +48,10 @@ def create_stock(stock: schemas.StockCreate, db: Session = Depends(get_db)):
     return stock_crud.create_stock(db, stock)
 
 
-@router.get("/{stock_id}/history", response_model=schemas.RatingHistoryResponse)
+@router.get(
+    "/{stock_id}/history",
+    response_model=schemas.RatingHistoryResponse,
+    response_model_exclude={"ratings": {"__all__": {"data_sources"}}},
+)
 def get_stock_rating_history(stock_id: int, db: Session = Depends(get_db)):
     return stock_crud.get_rating_history(db, stock_id)
