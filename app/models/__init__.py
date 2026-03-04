@@ -130,9 +130,29 @@ class AnalystRating(Base):
     source = Column(String)
     rating = Column(String)
     target_price = Column(Float, nullable=True)
-    analyst_name = Column(String, nullable=True)
     published_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("idx_analyst_rating_stock_published", "stock_id", "published_at"),
+    )
+
+
+class AnalystConsensus(Base):
+    __tablename__ = "analyst_consensus"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stock_id = Column(Integer, ForeignKey("stocks.id"))
+    strong_buy = Column(Integer, nullable=True)
+    buy = Column(Integer, nullable=True)
+    hold = Column(Integer, nullable=True)
+    sell = Column(Integer, nullable=True)
+    strong_sell = Column(Integer, nullable=True)
+    target_mean = Column(Float, nullable=True)
+    last_updated = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (Index("idx_analyst_consensus_stock", "stock_id"),)
 
 
 class NewsArticle(Base):

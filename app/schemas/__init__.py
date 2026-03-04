@@ -179,7 +179,6 @@ class AnalystRatingBase(BaseModel):
     source: str
     rating: str
     target_price: Optional[float] = None
-    analyst_name: Optional[str] = None
     published_at: datetime
 
 
@@ -194,6 +193,34 @@ class AnalystRating(AnalystRatingBase):
 
     class Config:
         from_attributes = True
+
+
+class AnalystConsensusBase(BaseModel):
+    strong_buy: Optional[int] = None
+    buy: Optional[int] = None
+    hold: Optional[int] = None
+    sell: Optional[int] = None
+    strong_sell: Optional[int] = None
+    target_mean: Optional[float] = None
+    last_updated: Optional[datetime] = None
+
+
+class AnalystConsensusCreate(AnalystConsensusBase):
+    stock_id: int
+
+
+class AnalystConsensus(AnalystConsensusBase):
+    id: int
+    stock_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AnalystRefreshResponse(BaseModel):
+    rating: AnalystRating
+    consensus: AnalystConsensus
 
 
 # Query Schemas
