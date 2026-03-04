@@ -80,8 +80,12 @@ class AnalystService:
                 continue
         return None
 
-    def _published_at(self, recommendation: Optional[dict], fallback: Optional[datetime]) -> datetime:
-        period = self._parse_period(recommendation.get("period")) if recommendation else None
+    def _published_at(
+        self, recommendation: Optional[dict], fallback: Optional[datetime]
+    ) -> datetime:
+        period = (
+            self._parse_period(recommendation.get("period")) if recommendation else None
+        )
         if isinstance(period, date):
             return datetime.combine(period, datetime.min.time())
         return datetime.utcnow()

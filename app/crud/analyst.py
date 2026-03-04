@@ -7,7 +7,11 @@ import app.schemas as schemas
 
 
 def _r2(val):
-    return round(float(val), 2) if isinstance(val, (int, float)) and val is not None else val
+    return (
+        round(float(val), 2)
+        if isinstance(val, (int, float)) and val is not None
+        else val
+    )
 
 
 # Granular analyst ratings
@@ -27,12 +31,18 @@ def list_ratings(
 def upsert_rating(
     db: Session, payload: Union[schemas.AnalystRatingCreate, dict]
 ) -> models.AnalystRating:
-    data = payload.model_dump() if isinstance(payload, schemas.AnalystRatingCreate) else dict(payload)
+    data = (
+        payload.model_dump()
+        if isinstance(payload, schemas.AnalystRatingCreate)
+        else dict(payload)
+    )
     stock_id = data["stock_id"]
     published_at = data.get("published_at")
     source = data.get("source")
 
-    query = db.query(models.AnalystRating).filter(models.AnalystRating.stock_id == stock_id)
+    query = db.query(models.AnalystRating).filter(
+        models.AnalystRating.stock_id == stock_id
+    )
     if published_at:
         query = query.filter(models.AnalystRating.published_at == published_at)
     if source:
@@ -42,7 +52,9 @@ def upsert_rating(
     if existing:
         for key, value in data.items():
             if hasattr(existing, key) and value is not None:
-                setattr(existing, key, _r2(value) if isinstance(value, float) else value)
+                setattr(
+                    existing, key, _r2(value) if isinstance(value, float) else value
+                )
         db.add(existing)
         db.commit()
         db.refresh(existing)
@@ -69,11 +81,17 @@ def latest_consensus(db: Session, stock_id: int) -> Optional[models.AnalystConse
 def upsert_consensus(
     db: Session, payload: Union[schemas.AnalystConsensusCreate, dict]
 ) -> models.AnalystConsensus:
-    data = payload.model_dump() if isinstance(payload, schemas.AnalystConsensusCreate) else dict(payload)
+    data = (
+        payload.model_dump()
+        if isinstance(payload, schemas.AnalystConsensusCreate)
+        else dict(payload)
+    )
     stock_id = data["stock_id"]
     last_updated = data.get("last_updated")
 
-    query = db.query(models.AnalystConsensus).filter(models.AnalystConsensus.stock_id == stock_id)
+    query = db.query(models.AnalystConsensus).filter(
+        models.AnalystConsensus.stock_id == stock_id
+    )
     if last_updated:
         query = query.filter(models.AnalystConsensus.last_updated == last_updated)
 
@@ -81,7 +99,9 @@ def upsert_consensus(
     if existing:
         for key, value in data.items():
             if hasattr(existing, key) and value is not None:
-                setattr(existing, key, _r2(value) if isinstance(value, float) else value)
+                setattr(
+                    existing, key, _r2(value) if isinstance(value, float) else value
+                )
         db.add(existing)
         db.commit()
         db.refresh(existing)

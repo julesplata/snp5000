@@ -6,7 +6,16 @@ import uvicorn
 import os
 
 import app.models  # noqa: F401 ensures models are registered
-from app.api import stocks, ratings, sectors, macro, news, quotes, analyst
+from app.api import (
+    stocks,
+    ratings,
+    sectors,
+    macro,
+    news,
+    quotes,
+    analyst,
+    fundamentals,
+)
 from app.utils.rate_limiter import build_rate_limiter
 from config import get_settings
 
@@ -54,6 +63,7 @@ app.include_router(macro.router, prefix="/api/macro", tags=["macroeconomics"])
 app.include_router(news.router, prefix="/api", tags=["news"])
 app.include_router(quotes.router, prefix="/api", tags=["quotes"])
 app.include_router(analyst.router, prefix="/api", tags=["analyst"])
+app.include_router(fundamentals.router, prefix="/api", tags=["fundamentals"])
 
 
 @app.get("/health")
