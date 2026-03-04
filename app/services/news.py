@@ -23,7 +23,7 @@ class NewsService:
         symbol = stock.symbol
         # Finnhub company-news requires date range; free tier supports recent 30 days.
         to_date = datetime.utcnow().date()
-        from_date = to_date - timedelta(days=3)
+        from_date = to_date - timedelta(hours=12)
 
         data = self.client.get(
             "/company-news",
