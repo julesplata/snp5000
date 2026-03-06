@@ -8,6 +8,7 @@ from sqlalchemy import (
     Text,
     JSON,
     Index,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import TSVECTOR
@@ -164,7 +165,7 @@ class NewsArticle(Base):
     title = Column(String(500), nullable=False)
     summary = Column(Text, nullable=True)
     content = Column(Text, nullable=True)
-    url = Column(String(1000), unique=True, index=True)
+    url = Column(String(1000), index=True)
 
     source = Column(String(100), index=True)
     author = Column(String(200), nullable=True)
@@ -186,4 +187,6 @@ class NewsArticle(Base):
         Index("idx_source_date", "source", "published_at"),
         Index("idx_sentiment", "sentiment_label", "sentiment_score"),
         Index("idx_search", "search_vector", postgresql_using="gin"),
+        # Allow the same article URL to be linked to multiple stocks but prevent duplicates per stock.
+        UniqueConstraint("stock_id", "url", name="uq_news_stock_url"),
     )

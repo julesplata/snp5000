@@ -29,20 +29,38 @@ def list_news(
 
 
 def upsert_articles(db: Session, stock_id: int, articles: List[dict]) -> int:
+    """Insert new articles and prune stale ones for a stock in a single transaction."""
+    if not articles:
+        return 0
+
     inserted = 0
+    fetched_urls = {art.get("url") for art in articles if art.get("url")}
+    inserted_urls = set()
+
     for art in articles:
-        if (
-            db.query(models.NewsArticle)
-            .filter(models.NewsArticle.url == art["url"])
+        url = art.get("url")
+        if not url:
+            continue  # ignore malformed entries lacking URLs
+
+        if url in inserted_urls:
+            continue  # duplicate within the same payload
+        exists = (
+            db.query(models.NewsArticle.id)
+            .filter(
+                models.NewsArticle.url == url,
+                models.NewsArticle.stock_id == stock_id,
+            )
             .first()
-        ):
-            continue  # skip duplicates by URL
+        )
+        if exists:
+            continue  # skip duplicates for this stock
+
         db_article = models.NewsArticle(
             stock_id=stock_id,
-            title=art["title"],
+            title=art.get("title"),
             summary=art.get("summary"),
             content=art.get("content"),
-            url=art["url"],
+            url=url,
             source=art.get("source"),
             author=art.get("author"),
             published_at=art.get("published_at"),
@@ -53,6 +71,17 @@ def upsert_articles(db: Session, stock_id: int, articles: List[dict]) -> int:
         )
         db.add(db_article)
         inserted += 1
+        inserted_urls.add(url)
+
+    # Prune any previously stored news for this stock that wasn't returned in the latest fetch.
+    if fetched_urls:
+        (
+            db.query(models.NewsArticle)
+            .filter(models.NewsArticle.stock_id == stock_id)
+            .filter(~models.NewsArticle.url.in_(fetched_urls))
+            .delete(synchronize_session=False)
+        )
+
     db.commit()
     return inserted
 

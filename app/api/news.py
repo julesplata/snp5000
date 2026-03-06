@@ -27,7 +27,7 @@ def news_summary(stock_id: int, limit: int = 20, db: Session = Depends(get_db)):
     return news_crud.summarize_news(db, stock_id, limit)
 
 
-@router.post("/stocks/{stock_id}/news/refresh")
-def refresh_news(stock_id: int, db: Session = Depends(get_db)):
-    inserted = service.fetch_and_store_company_news(db, stock_id)
-    return {"inserted": inserted}
+@router.post("/stocks/news/refresh")
+def refresh_all_news(lookback_hours: int = 12, db: Session = Depends(get_db)):
+    """Refresh news for all stocks; trims any previously stored articles not in the latest fetch."""
+    return service.fetch_and_store_all_company_news(db, lookback_hours=lookback_hours)

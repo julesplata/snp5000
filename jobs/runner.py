@@ -11,6 +11,12 @@ Examples:
   # Refresh macro snapshot
   python jobs/runner.py refresh-macro
 
+  # Refresh all quotes
+  python jobs/runner.py refresh-quotes
+
+  # Refresh news for every stock (and prune stale articles)
+  python jobs/runner.py refresh-news --lookback-hours 12
+
 This script is idempotent-ish: it upserts new ratings and macro snapshots
 without deleting historical data. It also writes a simple job_runs log table
 for observability; the table is created if missing.
@@ -18,10 +24,17 @@ for observability; the table is created if missing.
 
 import argparse
 import datetime as dt
+import logging
 import sys
+from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import text
+
+# Ensure project root is on PYTHONPATH when invoked directly (e.g., from cron).
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 import app.models as models
 from app.utils.rating_utils import RatingService
@@ -29,6 +42,16 @@ from config import get_settings
 from database import SessionLocal, engine
 import app.crud.macro_snapshot as macro_crud
 from services.macro_service import MacroeconomicService
+from app.services.quote import QuoteService
+from app.services.news import NewsService
+
+
+settings = get_settings()
+logging.basicConfig(
+    level=getattr(logging, str(settings.log_level).upper(), logging.INFO),
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger("job_runner")
 
 
 def ensure_job_runs_table():
@@ -49,6 +72,7 @@ def ensure_job_runs_table():
 
 
 def log_job_start(job_name: str) -> int:
+    logger.info("Starting job %s", job_name)
     with engine.begin() as conn:
         result = conn.execute(
             text(
@@ -61,6 +85,10 @@ def log_job_start(job_name: str) -> int:
 
 
 def log_job_end(job_id: int, status: str, processed: int, error: Optional[str] = None):
+    if status == "success":
+        logger.info("Job finished with status=%s processed=%s", status, processed)
+    else:
+        logger.error("Job finished with status=%s processed=%s error=%s", status, processed, error)
     with engine.begin() as conn:
         conn.execute(
             text(
@@ -89,6 +117,34 @@ def task_refresh_macro() -> int:
         db.close()
 
 
+def task_refresh_quotes() -> int:
+    db = SessionLocal()
+    try:
+        svc = QuoteService()
+        result = svc.refresh_all_quotes(db)
+        logger.info("Quotes refreshed: %s stocks updated", result.get("updated", 0))
+        return result.get("updated", 0)
+    finally:
+        db.close()
+
+
+def task_refresh_news(lookback_hours: int = 12) -> int:
+    db = SessionLocal()
+    try:
+        svc = NewsService()
+        result = svc.fetch_and_store_all_company_news(
+            db, lookback_hours=lookback_hours
+        )
+        logger.info(
+            "News refreshed: %s stocks processed, %s articles inserted",
+            result.get("stocks_processed"),
+            result.get("inserted"),
+        )
+        return result.get("inserted", 0)
+    finally:
+        db.close()
+
+
 def task_recalc_ratings(
     limit: Optional[int] = None, symbol: Optional[str] = None
 ) -> int:
@@ -103,14 +159,14 @@ def task_recalc_ratings(
 
         stocks = query.all()
         if not stocks:
-            print("No stocks found to process.")
+            logger.warning("No stocks found to process.")
             return 0
 
         rater = RatingService(db_session=db)
         for stock in stocks:
             rating_data = rater.calculate_rating(stock.symbol, db=db)
             if not rating_data:
-                print(f"✗ {stock.symbol}: rating failed")
+                logger.warning("%s: rating failed", stock.symbol)
                 continue
 
             rating = models.Rating(
@@ -127,7 +183,7 @@ def task_recalc_ratings(
             db.add(rating)
             db.commit()
             processed += 1
-            print(f"✓ {stock.symbol}: {rating.overall_rating}/10")
+            logger.info("%s: %.1f/10", stock.symbol, rating.overall_rating)
         return processed
     finally:
         db.close()
@@ -142,6 +198,17 @@ def main():
     recalc.add_argument("--symbol", type=str, help="Only process one symbol")
 
     sub.add_parser("refresh-macro", help="Fetch and store macro snapshot")
+    sub.add_parser("refresh-quotes", help="Refresh quotes for all stocks")
+
+    refresh_news = sub.add_parser(
+        "refresh-news", help="Refresh news for all stocks and prune stale entries"
+    )
+    refresh_news.add_argument(
+        "--lookback-hours",
+        type=int,
+        default=12,
+        help="How far back to fetch company news per stock",
+    )
 
     args = parser.parse_args()
 
@@ -149,17 +216,22 @@ def main():
     job_id = log_job_start(args.command)
 
     try:
+        logger.info("Executing command %s", args.command)
         if args.command == "recalc-ratings":
             processed = task_recalc_ratings(limit=args.limit, symbol=args.symbol)
         elif args.command == "refresh-macro":
             processed = task_refresh_macro()
+        elif args.command == "refresh-quotes":
+            processed = task_refresh_quotes()
+        elif args.command == "refresh-news":
+            processed = task_refresh_news(lookback_hours=args.lookback_hours)
         else:
             raise ValueError(f"Unknown command {args.command}")
         log_job_end(job_id, status="success", processed=processed)
-        print(f"Job {args.command} finished. Processed: {processed}")
+        logger.info("Job %s finished. Processed: %s", args.command, processed)
     except Exception as e:
         log_job_end(job_id, status="error", processed=0, error=str(e))
-        print(f"Job {args.command} failed: {e}", file=sys.stderr)
+        logger.exception("Job %s failed: %s", args.command, e)
         sys.exit(1)
 
 
