@@ -92,6 +92,16 @@ class RatingService:
         self.technical_ttl_hours = 6
         self.fundamental_ttl_hours = 24
 
+        # Reuse a single yfinance session with a desktop User-Agent to avoid
+        # occasional JSON decode errors from anti-bot HTML responses.
+        self._yf_session = requests.Session()
+        self._yf_session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
+            }
+        )
+
     def calculate_rating(self, symbol: str, db: Session = None) -> Optional[Dict]:
         db = db or self.db or SessionLocal()
         try:
@@ -211,6 +221,7 @@ class RatingService:
                 interval="1d",
                 progress=False,
                 auto_adjust=False,
+                session=self._yf_session,
             )
         except Exception as exc:
             raise ValueError(f"yfinance download failed for {symbol}: {exc}")
