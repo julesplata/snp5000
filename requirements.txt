@@ -4,10 +4,10 @@ sqlalchemy==2.0.25
 psycopg2-binary==2.9.9
 pydantic==2.5.3
 python-dotenv==1.0.0
-yfinance==0.2.36
 pandas==2.2.0
 numpy==1.26.3
 requests==2.31.0
+pandas-datareader==0.10.0
 black
 flake8
 pydantic-settings
