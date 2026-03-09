@@ -202,9 +202,8 @@ class RatingService:
     def _fetch_price_history(
         self, symbol: str, days: int = 365
     ) -> Optional[pd.DataFrame]:
-        """Fetch daily OHLCV; prefer yfinance (free), fall back to Finnhub if needed."""
+        """Fetch daily OHLCV using yfinance only (no Finnhub fallback)."""
 
-        # Primary: yfinance (no API key, handles splits/divs)
         try:
             hist = yf.download(
                 tickers=symbol,
@@ -213,33 +212,15 @@ class RatingService:
                 progress=False,
                 auto_adjust=False,
             )
-            if not hist.empty:
-                hist = hist[["Close", "High", "Low", "Open", "Volume"]].dropna()
-                hist.index = pd.to_datetime(hist.index)
-                return hist
-        except Exception:
-            pass  # fall back to finnhub
+        except Exception as exc:
+            raise ValueError(f"yfinance download failed for {symbol}: {exc}")
 
-        # Fallback: Finnhub candles (requires premium for some plans)
-        end = int(time.time())
-        start = end - days * 24 * 60 * 60
-        data = self.finnhub.get(
-            "/stock/candle",
-            {"symbol": symbol, "resolution": "D", "from": start, "to": end},
-        )
-        if not data or data.get("s") != "ok":
-            return None
+        if hist is None or hist.empty:
+            raise ValueError(f"yfinance returned no data for {symbol}")
 
-        return pd.DataFrame(
-            {
-                "Close": data["c"],
-                "High": data["h"],
-                "Low": data["l"],
-                "Open": data["o"],
-                "Volume": data["v"],
-            },
-            index=pd.to_datetime(data["t"], unit="s"),
-        )
+        hist = hist[["Close", "High", "Low", "Open", "Volume"]].dropna()
+        hist.index = pd.to_datetime(hist.index)
+        return hist
 
     def _compute_and_store_technical(
         self, stock: models.Stock, hist: pd.DataFrame, db: Session
