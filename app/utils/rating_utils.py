@@ -13,6 +13,7 @@ from typing import Dict, Optional
 import numpy as np
 import pandas as pd
 import requests
+import yfinance as yf
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -201,6 +202,25 @@ class RatingService:
     def _fetch_price_history(
         self, symbol: str, days: int = 365
     ) -> Optional[pd.DataFrame]:
+        """Fetch daily OHLCV; prefer yfinance (free), fall back to Finnhub if needed."""
+
+        # Primary: yfinance (no API key, handles splits/divs)
+        try:
+            hist = yf.download(
+                tickers=symbol,
+                period=f"{days}d",
+                interval="1d",
+                progress=False,
+                auto_adjust=False,
+            )
+            if not hist.empty:
+                hist = hist[["Close", "High", "Low", "Open", "Volume"]].dropna()
+                hist.index = pd.to_datetime(hist.index)
+                return hist
+        except Exception:
+            pass  # fall back to finnhub
+
+        # Fallback: Finnhub candles (requires premium for some plans)
         end = int(time.time())
         start = end - days * 24 * 60 * 60
         data = self.finnhub.get(
