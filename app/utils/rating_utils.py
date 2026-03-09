@@ -13,7 +13,7 @@ from typing import Dict, Optional
 import numpy as np
 import pandas as pd
 import requests
-import yfinance as yf
+from pandas_datareader import data as pdr
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -91,16 +91,6 @@ class RatingService:
 
         self.technical_ttl_hours = 6
         self.fundamental_ttl_hours = 24
-
-        # Reuse a single yfinance session with a desktop User-Agent to avoid
-        # occasional JSON decode errors from anti-bot HTML responses.
-        self._yf_session = requests.Session()
-        self._yf_session.headers.update(
-            {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
-            }
-        )
 
     def calculate_rating(self, symbol: str, db: Session = None) -> Optional[Dict]:
         db = db or self.db or SessionLocal()
@@ -212,26 +202,24 @@ class RatingService:
     def _fetch_price_history(
         self, symbol: str, days: int = 365
     ) -> Optional[pd.DataFrame]:
-        """Fetch daily OHLCV using yfinance only (no Finnhub fallback)."""
+        """Fetch daily OHLCV using Stooq via pandas-datareader (free, no key)."""
 
+        # Stooq via pandas-datareader. Symbols typically need .US.
+        stooq_symbol = symbol if symbol.endswith(".US") else f"{symbol}.US"
         try:
-            hist = yf.download(
-                tickers=symbol,
-                period=f"{days}d",
-                interval="1d",
-                progress=False,
-                auto_adjust=False,
-                session=self._yf_session,
-            )
+            hist = pdr.DataReader(stooq_symbol, "stooq")
+            if hist is not None and not hist.empty:
+                # Stooq returns most-recent first; sort ascending to align with calculations
+                hist = hist.sort_index()
+                hist = hist[["Close", "High", "Low", "Open", "Volume"]].dropna()
+                hist.index = pd.to_datetime(hist.index)
+                return hist
         except Exception as exc:
-            raise ValueError(f"yfinance download failed for {symbol}: {exc}")
+            raise ValueError(
+                f"Price history fetch failed for {symbol}: stooq error: {exc}"
+            )
 
-        if hist is None or hist.empty:
-            raise ValueError(f"yfinance returned no data for {symbol}")
-
-        hist = hist[["Close", "High", "Low", "Open", "Volume"]].dropna()
-        hist.index = pd.to_datetime(hist.index)
-        return hist
+        raise ValueError(f"Price history fetch failed for {symbol}: stooq returned no data")
 
     def _compute_and_store_technical(
         self, stock: models.Stock, hist: pd.DataFrame, db: Session
