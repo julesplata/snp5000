@@ -386,7 +386,8 @@ class MacroeconomicService:
                 "release_id": release_id,
                 "api_key": self.api_key,
                 "file_type": "json",
-                "include_release_dates_with_no_data": True,
+                # FRED expects lowercase 'true'/'false' strings, not Python booleans.
+                "include_release_dates_with_no_data": "true",
                 "order_by": "release_date",
                 "sort_order": "asc",
                 "limit": 25,
