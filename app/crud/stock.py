@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from sqlalchemy import desc, or_
+from sqlalchemy import asc, desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
@@ -15,9 +15,32 @@ def list_stocks(
     min_rating: Optional[float],
     max_rating: Optional[float],
     search: Optional[str],
+    sort_by: str = "name",
+    sort_dir: str = "asc",
 ) -> List[schemas.StockWithLatestRating]:
-    query = db.query(models.Stock).options(
-        joinedload(models.Stock.sector), joinedload(models.Stock.ratings)
+    # Subquery: one row per stock with its latest rating date and overall_rating
+    latest_date_sq = (
+        db.query(
+            models.Rating.stock_id,
+            func.max(models.Rating.rating_date).label("latest_date"),
+        )
+        .group_by(models.Rating.stock_id)
+        .subquery()
+    )
+    latest_rating_sq = (
+        db.query(models.Rating)
+        .join(
+            latest_date_sq,
+            (models.Rating.stock_id == latest_date_sq.c.stock_id)
+            & (models.Rating.rating_date == latest_date_sq.c.latest_date),
+        )
+        .subquery()
+    )
+
+    query = (
+        db.query(models.Stock)
+        .options(joinedload(models.Stock.sector), joinedload(models.Stock.ratings))
+        .outerjoin(latest_rating_sq, models.Stock.id == latest_rating_sq.c.stock_id)
     )
 
     if sector_id:
@@ -31,6 +54,23 @@ def list_stocks(
             )
         )
 
+    if min_rating is not None:
+        query = query.filter(latest_rating_sq.c.overall_rating >= min_rating)
+    if max_rating is not None:
+        query = query.filter(latest_rating_sq.c.overall_rating <= max_rating)
+
+    direction = desc if sort_dir == "desc" else asc
+    if sort_by == "rating":
+        query = query.order_by(direction(latest_rating_sq.c.overall_rating).nullslast())
+    elif sort_by == "market_cap":
+        query = query.order_by(direction(models.Stock.market_cap).nullslast())
+    elif sort_by == "symbol":
+        query = query.order_by(direction(models.Stock.symbol))
+    elif sort_by == "created_at":
+        query = query.order_by(direction(models.Stock.created_at))
+    else:
+        query = query.order_by(direction(models.Stock.name))
+
     stocks = query.offset(skip).limit(limit).all()
 
     result = []
@@ -42,11 +82,6 @@ def list_stocks(
                 stock.ratings, key=lambda r: r.rating_date, reverse=True
             )
             latest_rating = sorted_ratings[0]
-
-            if min_rating and latest_rating.overall_rating < min_rating:
-                continue
-            if max_rating and latest_rating.overall_rating > max_rating:
-                continue
 
             rating_dict = schemas.Rating.model_validate(latest_rating).model_dump()
             for k in [
@@ -74,8 +109,6 @@ def list_stocks(
             else:
                 stock_dict["rating_trend"] = "new"
         else:
-            if min_rating or max_rating:
-                continue
             stock_dict["latest_rating"] = None
             stock_dict["rating_trend"] = None
 

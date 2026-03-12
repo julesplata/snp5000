@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from database import get_db
 import app.schemas as schemas
@@ -21,6 +21,10 @@ def list_stocks(
     min_rating: Optional[float] = None,
     max_rating: Optional[float] = None,
     search: Optional[str] = None,
+    sort_by: Literal["name", "symbol", "market_cap", "rating", "created_at"] = Query(
+        "name", description="Field to sort by"
+    ),
+    sort_dir: Literal["asc", "desc"] = Query("asc", description="Sort direction"),
     db: Session = Depends(get_db),
 ):
     return stock_crud.list_stocks(
@@ -31,6 +35,8 @@ def list_stocks(
         min_rating=min_rating,
         max_rating=max_rating,
         search=search,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
 
 
