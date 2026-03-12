@@ -7,20 +7,30 @@ from database import get_db
 import app.schemas as schemas
 import app.crud.fundamental as fundamental_crud
 from app.services.fundamental import FundamentalService
+from app.services.fundamental_analysis import FundamentalAnalysisEngine
 
 router = APIRouter()
 service = FundamentalService()
+analyzer = FundamentalAnalysisEngine()
 
 
 @router.get(
     "/stocks/{stock_id}/fundamentals",
-    response_model=schemas.FundamentalIndicator,
+    response_model=dict,
 )
-def get_latest_fundamentals(stock_id: int, db: Session = Depends(get_db)):
+def get_latest_fundamentals(
+    stock_id: int,
+    investment_style: str = Query(
+        "value",
+        regex="^(growth|value|income|quality)$",
+        description="Investor style to emphasize in the composite narrative",
+    ),
+    db: Session = Depends(get_db),
+):
     record = fundamental_crud.latest(db, stock_id)
     if not record:
         raise HTTPException(status_code=404, detail="No fundamentals found for stock")
-    return record
+    return analyzer.analyze(record, investment_style=investment_style)
 
 
 @router.post(
