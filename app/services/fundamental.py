@@ -5,7 +5,10 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 import app.crud.fundamental as fundamental_crud
+import app.crud.fundamental_analysis as fundamental_analysis_crud
 import app.models as models
+import app.schemas as schemas
+from app.services.fundamental_analysis import FundamentalAnalysisEngine
 from app.utils.rating_utils import FinnhubClient
 from config import get_settings
 
@@ -32,7 +35,9 @@ class FundamentalService:
                 return cached
 
         payload = self._fetch_metrics_payload(stock.symbol, stock.id)
-        return fundamental_crud.create(db, payload)
+        new_record = fundamental_crud.create(db, payload)
+        self._store_analysis(db, new_record)
+        return new_record
 
     def refresh_all(self, db: Session, force_refresh: bool = False) -> dict:
         updated = 0
@@ -76,6 +81,24 @@ class FundamentalService:
             "data_source": "finnhub",
             "fetched_at": datetime.utcnow(),
         }
+
+    def _store_analysis(
+        self, db: Session, raw_record: models.FundamentalIndicator
+    ) -> None:
+        analyzer = FundamentalAnalysisEngine()
+        result = analyzer.analyze(raw_record)
+        payload = schemas.FundamentalAnalysisCreate(
+            stock_id=raw_record.stock_id,
+            fundamental_indicator_id=raw_record.id,
+            normalized_scores=result["normalized_scores"],
+            composite_scores=result["composite_scores"],
+            anomalies=result["anomalies"],
+            risk_rating=result["narrative"]["risk_rating"],
+            confidence=result["narrative"]["confidence"],
+            narrative=result["narrative"],
+            analyzed_at=datetime.utcnow(),
+        )
+        fundamental_analysis_crud.upsert(db, payload)
 
     @staticmethod
     def _first_metric(metrics: dict, keys) -> Optional[float]:

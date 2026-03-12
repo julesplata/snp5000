@@ -131,6 +131,28 @@ class FundamentalIndicator(FundamentalIndicatorBase):
         from_attributes = True
 
 
+# Fundamental Analysis Schemas
+class FundamentalAnalysisCreate(BaseModel):
+    stock_id: int
+    fundamental_indicator_id: Optional[int] = None
+    normalized_scores: Optional[dict] = None
+    composite_scores: Optional[dict] = None
+    anomalies: Optional[list] = None
+    risk_rating: Optional[str] = None
+    confidence: Optional[float] = None
+    narrative: Optional[dict] = None
+    analyzed_at: Optional[datetime] = None
+
+
+class FundamentalAnalysisSlimResponse(BaseModel):
+    stock_id: int
+    investment_style: str
+    analyzed_at: datetime
+    normalized_scores: dict
+    composite_score: Optional[float] = None
+    narrative: dict
+
+
 # News Schemas
 class NewsArticleBase(BaseModel):
     title: str

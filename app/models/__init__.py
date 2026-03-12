@@ -49,6 +49,9 @@ class Stock(Base):
     fundamental_indicators = relationship(
         "FundamentalIndicator", cascade="all, delete-orphan"
     )
+    fundamental_analyses = relationship(
+        "FundamentalAnalysis", cascade="all, delete-orphan"
+    )
     news_articles = relationship(
         "NewsArticle", back_populates="stock", cascade="all, delete-orphan"
     )
@@ -121,6 +124,25 @@ class FundamentalIndicator(Base):
     raw_metrics = Column(JSON, nullable=True)
     data_source = Column(String, default="finnhub")
     fetched_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class FundamentalAnalysis(Base):
+    __tablename__ = "fundamental_analyses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stock_id = Column(Integer, ForeignKey("stocks.id"), nullable=False)
+    fundamental_indicator_id = Column(
+        Integer, ForeignKey("fundamental_indicators.id"), nullable=True
+    )
+    normalized_scores = Column(JSON, nullable=True)
+    composite_scores = Column(JSON, nullable=True)
+    anomalies = Column(JSON, nullable=True)
+    risk_rating = Column(String, nullable=True)
+    confidence = Column(Float, nullable=True)
+    narrative = Column(JSON, nullable=True)
+    analyzed_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    __table_args__ = (Index("idx_fa_stock_analyzed", "stock_id", "analyzed_at"),)
 
 
 class AnalystRating(Base):
