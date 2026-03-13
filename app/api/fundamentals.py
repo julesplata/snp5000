@@ -8,11 +8,9 @@ import app.schemas as schemas
 import app.crud.fundamental as fundamental_crud
 import app.crud.fundamental_analysis as fundamental_analysis_crud
 from app.services.fundamental import FundamentalService
-from app.services.fundamental_analysis import FundamentalAnalysisEngine
 
 router = APIRouter()
 service = FundamentalService()
-analyzer = FundamentalAnalysisEngine()
 
 
 def _build_slim_response(row, investment_style: str) -> dict:
@@ -42,6 +40,13 @@ def _build_slim_response(row, investment_style: str) -> dict:
         "normalized_scores": slim_scores,
         "composite_score": composite_score,
         "narrative": slim_narrative,
+        "valuation_score": row.valuation_score,
+        "profitability_score": row.profitability_score,
+        "growth_score": row.growth_score,
+        "health_score": row.health_score,
+        "cashflow_score": row.cashflow_score,
+        "efficiency_score": row.efficiency_score,
+        "overall_fundamental_rating": row.overall_fundamental_rating,
     }
 
 
@@ -68,19 +73,7 @@ def get_latest_fundamentals(
     if not raw:
         raise HTTPException(status_code=404, detail="No fundamentals found for stock")
 
-    full = analyzer.analyze(raw, investment_style=investment_style)
-    payload = schemas.FundamentalAnalysisCreate(
-        stock_id=stock_id,
-        fundamental_indicator_id=raw.id,
-        normalized_scores=full["normalized_scores"],
-        composite_scores=full["composite_scores"],
-        anomalies=full["anomalies"],
-        risk_rating=full["narrative"]["risk_rating"],
-        confidence=full["narrative"]["confidence"],
-        narrative=full["narrative"],
-        analyzed_at=datetime.utcnow(),
-    )
-    analysis_row = fundamental_analysis_crud.upsert(db, payload)
+    analysis_row = service._analyze_and_store(db, raw)
     return _build_slim_response(analysis_row, investment_style)
 
 

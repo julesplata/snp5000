@@ -142,6 +142,15 @@ class FundamentalAnalysis(Base):
     narrative = Column(JSON, nullable=True)
     analyzed_at = Column(DateTime, default=datetime.utcnow, index=True)
 
+    # Pillar-based standalone rating (1–10 scale per pillar + overall)
+    valuation_score            = Column(Float, nullable=True)
+    profitability_score        = Column(Float, nullable=True)
+    growth_score               = Column(Float, nullable=True)
+    health_score               = Column(Float, nullable=True)
+    cashflow_score             = Column(Float, nullable=True)
+    efficiency_score           = Column(Float, nullable=True)
+    overall_fundamental_rating = Column(Float, nullable=True)
+
     __table_args__ = (Index("idx_fa_stock_analyzed", "stock_id", "analyzed_at"),)
 
 

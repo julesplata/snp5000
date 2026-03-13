@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -9,8 +10,11 @@ import app.crud.fundamental_analysis as fundamental_analysis_crud
 import app.models as models
 import app.schemas as schemas
 from app.services.fundamental_analysis import FundamentalAnalysisEngine
+from app.services.pillar_rating import PillarRatingCalculator, PillarResult, PillarValidator, StockContext
 from app.utils.rating_utils import FinnhubClient
 from config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class FundamentalService:
@@ -82,11 +86,18 @@ class FundamentalService:
             "fetched_at": datetime.utcnow(),
         }
 
-    def _store_analysis(
+    def _analyze_and_store(
         self, db: Session, raw_record: models.FundamentalIndicator
-    ) -> None:
-        analyzer = FundamentalAnalysisEngine()
-        result = analyzer.analyze(raw_record)
+    ) -> models.FundamentalAnalysis:
+        result = FundamentalAnalysisEngine().analyze(raw_record)
+
+        stock = db.query(models.Stock).filter_by(id=raw_record.stock_id).first()
+        stock_ctx = StockContext(
+            market_cap=stock.market_cap if stock else None,
+            current_price=stock.current_price if stock else None,
+        )
+        pillar = PillarRatingCalculator().compute(raw_record.raw_metrics or {}, stock_ctx)
+
         payload = schemas.FundamentalAnalysisCreate(
             stock_id=raw_record.stock_id,
             fundamental_indicator_id=raw_record.id,
@@ -97,8 +108,54 @@ class FundamentalService:
             confidence=result["narrative"]["confidence"],
             narrative=result["narrative"],
             analyzed_at=datetime.utcnow(),
+            valuation_score=pillar.valuation_score,
+            profitability_score=pillar.profitability_score,
+            growth_score=pillar.growth_score,
+            health_score=pillar.health_score,
+            cashflow_score=pillar.cashflow_score,
+            efficiency_score=pillar.efficiency_score,
+            overall_fundamental_rating=pillar.overall_fundamental_rating,
         )
-        fundamental_analysis_crud.upsert(db, payload)
+        row = fundamental_analysis_crud.upsert(db, payload)
+
+        # Server-side validation: sanity checks, sensitivity analysis, distribution
+        try:
+            PillarValidator().run_all(pillar, raw_record.raw_metrics or {}, raw_record.stock_id)
+            self._log_distribution_check(db, raw_record.stock_id, pillar)
+        except Exception:
+            logger.exception("pillar_validation failed for stock_id=%d (non-fatal)", raw_record.stock_id)
+
+        return row
+
+    def _log_distribution_check(self, db: Session, stock_id: int, pillar: PillarResult) -> None:
+        """Log each pillar score's percentile rank across all stocks in the DB."""
+        fields = [
+            ("valuation_score",            pillar.valuation_score),
+            ("profitability_score",        pillar.profitability_score),
+            ("growth_score",               pillar.growth_score),
+            ("health_score",               pillar.health_score),
+            ("cashflow_score",             pillar.cashflow_score),
+            ("efficiency_score",           pillar.efficiency_score),
+            ("overall_fundamental_rating", pillar.overall_fundamental_rating),
+        ]
+        for field_name, score in fields:
+            if score is None:
+                continue
+            col = getattr(models.FundamentalAnalysis, field_name)
+            total = db.query(models.FundamentalAnalysis).filter(col.isnot(None)).count()
+            if total == 0:
+                continue
+            below = db.query(models.FundamentalAnalysis).filter(col < score).count()
+            pct = round(below / total * 100, 1)
+            logger.info(
+                "pillar_distribution stock_id=%d: %s=%.4f is %.1f percentile (n=%d stocks)",
+                stock_id, field_name, score, pct, total,
+            )
+
+    def _store_analysis(
+        self, db: Session, raw_record: models.FundamentalIndicator
+    ) -> None:
+        self._analyze_and_store(db, raw_record)
 
     @staticmethod
     def _first_metric(metrics: dict, keys) -> Optional[float]:

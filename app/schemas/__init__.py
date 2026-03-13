@@ -142,6 +142,14 @@ class FundamentalAnalysisCreate(BaseModel):
     confidence: Optional[float] = None
     narrative: Optional[dict] = None
     analyzed_at: Optional[datetime] = None
+    # Pillar-based standalone scores
+    valuation_score: Optional[float] = None
+    profitability_score: Optional[float] = None
+    growth_score: Optional[float] = None
+    health_score: Optional[float] = None
+    cashflow_score: Optional[float] = None
+    efficiency_score: Optional[float] = None
+    overall_fundamental_rating: Optional[float] = None
 
 
 class FundamentalAnalysisSlimResponse(BaseModel):
@@ -151,6 +159,14 @@ class FundamentalAnalysisSlimResponse(BaseModel):
     normalized_scores: dict
     composite_score: Optional[float] = None
     narrative: dict
+    # Pillar-based standalone scores
+    valuation_score: Optional[float] = None
+    profitability_score: Optional[float] = None
+    growth_score: Optional[float] = None
+    health_score: Optional[float] = None
+    cashflow_score: Optional[float] = None
+    efficiency_score: Optional[float] = None
+    overall_fundamental_rating: Optional[float] = None
 
 
 # News Schemas
