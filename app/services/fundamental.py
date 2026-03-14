@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -9,7 +9,7 @@ import app.crud.fundamental as fundamental_crud
 import app.crud.fundamental_analysis as fundamental_analysis_crud
 import app.models as models
 import app.schemas as schemas
-from app.services.fundamental_analysis import FundamentalAnalysisEngine
+from app.services.fundamental_analysis import ComparableAnalysis, FundamentalAnalysisEngine
 from app.services.pillar_rating import PillarRatingCalculator, PillarResult, PillarValidator, StockContext
 from app.utils.rating_utils import FinnhubClient
 from config import get_settings
@@ -98,15 +98,34 @@ class FundamentalService:
         )
         pillar = PillarRatingCalculator().compute(raw_record.raw_metrics or {}, stock_ctx)
 
+        # CCA: sector peer comparison
+        peer_metrics_list, sector_name = self._build_peer_metrics(db, raw_record.stock_id)
+        raw = raw_record.raw_metrics or {}
+        stock_metrics: Dict[str, Optional[float]] = {
+            "pe_ratio":       self._first_metric(raw, ["peBasicExclExtraTTM", "peTTM"]),
+            "pb_ratio":       self._first_metric(raw, ["pbAnnual", "pbQuarterly"]),
+            "debt_to_equity": self._first_metric(raw, [
+                "totalDebt/totalEquityAnnual",
+                "totalDebt/totalEquityQuarterly",
+                "totalDebtToEquityAnnual",
+            ]),
+            "net_margin":     self._first_metric(raw, ["netProfitMarginTTM", "netProfitMarginAnnual"]),
+            "roe":            self._first_metric(raw, ["roeTTM", "roeRfy"]),
+        }
+        cca_result = ComparableAnalysis(stock_metrics, peer_metrics_list, sector_name).analyze()
+
+        narrative = result["narrative"]
+        narrative["peer_cca"] = cca_result
+
         payload = schemas.FundamentalAnalysisCreate(
             stock_id=raw_record.stock_id,
             fundamental_indicator_id=raw_record.id,
             normalized_scores=result["normalized_scores"],
             composite_scores=result["composite_scores"],
             anomalies=result["anomalies"],
-            risk_rating=result["narrative"]["risk_rating"],
-            confidence=result["narrative"]["confidence"],
-            narrative=result["narrative"],
+            risk_rating=narrative["risk_rating"],
+            confidence=narrative["confidence"],
+            narrative=narrative,
             analyzed_at=datetime.utcnow(),
             valuation_score=pillar.valuation_score,
             profitability_score=pillar.profitability_score,
@@ -120,12 +139,119 @@ class FundamentalService:
 
         # Server-side validation: sanity checks, sensitivity analysis, distribution
         try:
-            PillarValidator().run_all(pillar, raw_record.raw_metrics or {}, raw_record.stock_id)
+            sector_pillar_scores = self._build_sector_pillar_scores(db, raw_record.stock_id)
+            PillarValidator().run_all(
+                pillar, raw_record.raw_metrics or {}, raw_record.stock_id,
+                sector_pillar_scores=sector_pillar_scores,
+            )
             self._log_distribution_check(db, raw_record.stock_id, pillar)
+            self._log_cca_result(raw_record.stock_id, cca_result)
         except Exception:
             logger.exception("pillar_validation failed for stock_id=%d (non-fatal)", raw_record.stock_id)
 
         return row
+
+    def _build_peer_metrics(
+        self, db: Session, stock_id: int
+    ) -> Tuple[List[Dict[str, Optional[float]]], Optional[str]]:
+        """Return (peer_metrics_list, sector_name) for all sector peers with data."""
+        stock = db.query(models.Stock).filter_by(id=stock_id).first()
+        if not stock or stock.sector_id is None:
+            return [], None
+
+        sector = db.query(models.Sector).filter_by(id=stock.sector_id).first()
+        sector_name = sector.name if sector else None
+
+        peer_stocks = (
+            db.query(models.Stock)
+            .filter(
+                models.Stock.sector_id == stock.sector_id,
+                models.Stock.id != stock_id,
+            )
+            .all()
+        )
+
+        peer_metrics: List[Dict[str, Optional[float]]] = []
+        for peer in peer_stocks:
+            fi = (
+                db.query(models.FundamentalIndicator)
+                .filter_by(stock_id=peer.id)
+                .order_by(models.FundamentalIndicator.fetched_at.desc())
+                .first()
+            )
+            if fi is None:
+                continue
+            raw = fi.raw_metrics or {}
+            peer_metrics.append({
+                "pe_ratio":       self._first_metric(raw, ["peBasicExclExtraTTM", "peTTM"]),
+                "pb_ratio":       self._first_metric(raw, ["pbAnnual", "pbQuarterly"]),
+                "debt_to_equity": self._first_metric(raw, [
+                    "totalDebt/totalEquityAnnual",
+                    "totalDebt/totalEquityQuarterly",
+                    "totalDebtToEquityAnnual",
+                ]),
+                "net_margin":     self._first_metric(raw, ["netProfitMarginTTM", "netProfitMarginAnnual"]),
+                "roe":            self._first_metric(raw, ["roeTTM", "roeRfy"]),
+            })
+
+        return peer_metrics, sector_name
+
+    def _build_sector_pillar_scores(
+        self, db: Session, stock_id: int
+    ) -> List[Dict[str, Optional[float]]]:
+        """Return pillar score dicts for all sector peers with a FundamentalAnalysis row."""
+        stock = db.query(models.Stock).filter_by(id=stock_id).first()
+        if not stock or stock.sector_id is None:
+            return []
+
+        peer_ids = [
+            row.id
+            for row in db.query(models.Stock.id)
+            .filter(
+                models.Stock.sector_id == stock.sector_id,
+                models.Stock.id != stock_id,
+            )
+            .all()
+        ]
+        if not peer_ids:
+            return []
+
+        analyses = (
+            db.query(models.FundamentalAnalysis)
+            .filter(models.FundamentalAnalysis.stock_id.in_(peer_ids))
+            .distinct(models.FundamentalAnalysis.stock_id)
+            .order_by(
+                models.FundamentalAnalysis.stock_id,
+                models.FundamentalAnalysis.analyzed_at.desc(),
+            )
+            .all()
+        )
+        return [
+            {
+                "valuation":     a.valuation_score,
+                "profitability": a.profitability_score,
+                "growth":        a.growth_score,
+                "health":        a.health_score,
+                "cashflow":      a.cashflow_score,
+                "efficiency":    a.efficiency_score,
+            }
+            for a in analyses
+        ]
+
+    def _log_cca_result(self, stock_id: int, cca: dict) -> None:
+        if not cca.get("available"):
+            logger.info("cca stock_id=%d: no sector peers available", stock_id)
+            return
+        verdict = cca.get("valuation_verdict", {})
+        logger.info(
+            "cca stock_id=%d: sector=%s peers=%d verdict=%s pe_premium=%s roe_pct=%s",
+            stock_id,
+            cca.get("sector"),
+            cca.get("peer_count", 0),
+            verdict.get("label"),
+            verdict.get("pe_premium_pct"),
+            verdict.get("roe_percentile"),
+        )
 
     def _log_distribution_check(self, db: Session, stock_id: int, pillar: PillarResult) -> None:
         """Log each pillar score's percentile rank across all stocks in the DB."""

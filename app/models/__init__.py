@@ -25,6 +25,12 @@ class Sector(Base):
     description = Column(Text, nullable=True)
 
     stocks = relationship("Stock", back_populates="sector")
+    economic_ratings = relationship(
+        "SectorEconomicRating",
+        back_populates="sector",
+        order_by="SectorEconomicRating.rated_at.desc()",
+        cascade="all, delete-orphan",
+    )
 
 
 class Stock(Base):
@@ -220,4 +226,39 @@ class NewsArticle(Base):
         Index("idx_search", "search_vector", postgresql_using="gin"),
         # Allow the same article URL to be linked to multiple stocks but prevent duplicates per stock.
         UniqueConstraint("stock_id", "url", name="uq_news_stock_url"),
+    )
+
+
+class SectorEconomicRating(Base):
+    __tablename__ = "sector_economic_ratings"
+
+    id        = Column(Integer, primary_key=True, index=True)
+    sector_id = Column(Integer, ForeignKey("sectors.id"), nullable=False)
+
+    # Top-level score (same 0–10 scale as other pillars)
+    economic_score = Column(Float, nullable=True)
+
+    # Sector-specific sensitivity sub-scores
+    gdp_sensitivity_score        = Column(Float, nullable=True)
+    rate_sensitivity_score       = Column(Float, nullable=True)
+    inflation_sensitivity_score  = Column(Float, nullable=True)
+    employment_sensitivity_score = Column(Float, nullable=True)
+
+    # Flexible breakdown for additional factors / raw weights
+    components = Column(JSON, nullable=True)
+
+    # Link to the macro snapshot that drove this rating
+    economic_snapshot_id = Column(
+        Integer, ForeignKey("economic_snapshots.id"), nullable=True
+    )
+
+    analysis    = Column(Text, nullable=True)
+    data_source = Column(String, nullable=True)
+    rated_at    = Column(DateTime, default=datetime.utcnow, index=True)
+
+    sector            = relationship("Sector", back_populates="economic_ratings")
+    economic_snapshot = relationship("EconomicSnapshot")
+
+    __table_args__ = (
+        Index("idx_ser_sector_rated", "sector_id", "rated_at"),
     )

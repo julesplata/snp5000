@@ -257,10 +257,12 @@ class PillarValidator:
     SENSITIVITY_SHIFT = 0.20      # ±20 %
     SENSITIVITY_LOG_THRESHOLD = 0.05  # only log deltas > 0.05
 
-    def run_all(self, result: PillarResult, raw_metrics: dict, stock_id: int) -> None:
+    def run_all(self, result: PillarResult, raw_metrics: dict, stock_id: int,
+                sector_pillar_scores: "list[dict] | None" = None) -> None:
         self._sanity_check(result, raw_metrics, stock_id)
         self._sensitivity_analysis(result, stock_id)
-        # self._peer_benchmark(result, stock_id)  # placeholder — see bottom of class
+        if sector_pillar_scores:
+            self._peer_benchmark(result, stock_id, sector_pillar_scores)
 
     # ------------------------------------------------------------------
     # Sanity checks
@@ -408,16 +410,55 @@ class PillarValidator:
                     )
 
     # ------------------------------------------------------------------
-    # Peer benchmarking — placeholder (requires sector peer data)
+    # Peer benchmarking — sector percentile ranking
     # ------------------------------------------------------------------
-    # def _peer_benchmark(self, result: PillarResult, stock_id: int) -> None:
-    #     """Compare pillar scores against sector peers.
-    #
-    #     TODO: Implement when sector-level FundamentalAnalysis aggregates are
-    #     available. Steps:
-    #       1. Look up stock's sector_id from Stock table.
-    #       2. Query FundamentalAnalysis rows for all stocks in the same sector.
-    #       3. For each pillar, compute this stock's percentile rank within sector.
-    #       4. Log a warning if any pillar ranks in the top or bottom 5 % of peers.
-    #     """
-    #     pass
+
+    OUTLIER_HIGH_PCT = 95.0
+    OUTLIER_LOW_PCT  =  5.0
+
+    def _peer_benchmark(
+        self,
+        result: PillarResult,
+        stock_id: int,
+        sector_pillar_scores: "list[dict]",
+    ) -> None:
+        """Compare each pillar against sector peers and log outlier warnings.
+
+        sector_pillar_scores: list of dicts, each with keys matching _PILLAR_NAMES,
+        one entry per peer stock (None values tolerated).
+        """
+        my_scores = _result_to_dict(result)
+
+        for pillar in _PILLAR_NAMES:
+            my_val = my_scores.get(pillar)
+            if my_val is None:
+                continue
+
+            peer_vals = [
+                p[pillar] for p in sector_pillar_scores
+                if p.get(pillar) is not None
+            ]
+            if len(peer_vals) < 2:
+                continue
+
+            below = sum(1 for v in peer_vals if v < my_val)
+            percentile = round(below / len(peer_vals) * 100, 1)
+
+            if percentile >= self.OUTLIER_HIGH_PCT:
+                logger.warning(
+                    "pillar_peer_benchmark stock_id=%d: %s=%.2f is in %.0fth percentile "
+                    "of %d sector peers (top outlier) — verify data quality",
+                    stock_id, pillar, my_val, percentile, len(peer_vals),
+                )
+            elif percentile <= self.OUTLIER_LOW_PCT:
+                logger.warning(
+                    "pillar_peer_benchmark stock_id=%d: %s=%.2f is in %.0fth percentile "
+                    "of %d sector peers (bottom outlier) — stock may be distressed",
+                    stock_id, pillar, my_val, percentile, len(peer_vals),
+                )
+            else:
+                logger.info(
+                    "pillar_peer_benchmark stock_id=%d: %s=%.2f → %.0fth percentile "
+                    "(n=%d sector peers)",
+                    stock_id, pillar, my_val, percentile, len(peer_vals),
+                )

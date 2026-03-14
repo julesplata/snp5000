@@ -115,6 +115,163 @@ class PeerAnalyzer:
         return benchmarks
 
 
+class ComparableAnalysis:
+    """
+    Comparable Company Analysis (CCA).
+
+    Compares a stock's key ratios against sector peers using percentile and
+    Z-score ranking, then produces a valuation verdict by crossing the P/E
+    premium/discount against the stock's ROE standing within the sector.
+
+    Verdict labels:
+        justified_premium  — high P/E, high ROE  → Neutral/Buy
+        overvalued         — high P/E, low ROE   → Sell
+        undervalued_gem    — low P/E,  high ROE  → Strong Buy
+        discount           — low P/E,  low ROE   → Review
+        fair_value         — within ±15% of sector P/E median
+        insufficient_data  — P/E unavailable
+    """
+
+    PEER_METRICS = ["pe_ratio", "pb_ratio", "debt_to_equity", "net_margin", "roe"]
+
+    # P/E vs. sector median thresholds (%)
+    PREMIUM_THRESHOLD  =  15.0
+    DISCOUNT_THRESHOLD = -15.0
+    # ROE percentile required to be considered "high ROE"
+    HIGH_ROE_PERCENTILE = 60.0
+
+    def __init__(
+        self,
+        stock_metrics: Dict[str, Optional[float]],
+        peer_metrics_list: List[Dict[str, Optional[float]]],
+        sector_name: Optional[str] = None,
+    ) -> None:
+        self.stock = stock_metrics
+        self.peers = peer_metrics_list
+        self.sector_name = sector_name
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def analyze(self) -> Dict:
+        if not self.peers:
+            return {"available": False, "reason": "no_sector_peers"}
+
+        metrics_result: Dict[str, dict] = {}
+        for metric in self.PEER_METRICS:
+            peer_vals = [p[metric] for p in self.peers if p.get(metric) is not None]
+            your_val  = self.stock.get(metric)
+
+            if not peer_vals or your_val is None:
+                metrics_result[metric] = {"available": False}
+                continue
+
+            median = statistics.median(peer_vals)
+            mean   = statistics.mean(peer_vals)
+            premium_pct = (
+                ((your_val - median) / abs(median)) * 100 if median != 0 else None
+            )
+
+            metrics_result[metric] = {
+                "your_value":    round(your_val, 4),
+                "sector_median": round(median, 4),
+                "sector_mean":   round(mean, 4),
+                "premium_pct":   round(premium_pct, 1) if premium_pct is not None else None,
+                "z_score":       self._z_score(your_val, peer_vals),
+                "percentile":    self._percentile_rank(your_val, peer_vals),
+                "peer_count":    len(peer_vals),
+            }
+
+        return {
+            "available":         True,
+            "sector":            self.sector_name,
+            "peer_count":        len(self.peers),
+            "metrics":           metrics_result,
+            "valuation_verdict": self._valuation_verdict(metrics_result),
+        }
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _percentile_rank(value: float, all_values: List[float]) -> float:
+        below = sum(1 for v in all_values if v < value)
+        return round(below / len(all_values) * 100, 1)
+
+    @staticmethod
+    def _z_score(value: float, all_values: List[float]) -> Optional[float]:
+        if len(all_values) < 2:
+            return None
+        mean = statistics.mean(all_values)
+        std  = statistics.stdev(all_values)
+        if std == 0:
+            return 0.0
+        return round((value - mean) / std, 2)
+
+    def _valuation_verdict(self, metrics_result: Dict) -> Dict:
+        pe_data  = metrics_result.get("pe_ratio", {})
+        roe_data = metrics_result.get("roe", {})
+
+        pe_premium     = pe_data.get("premium_pct")  if pe_data.get("available", True)  else None
+        roe_percentile = roe_data.get("percentile")  if roe_data.get("available", True) else None
+
+        if pe_premium is None:
+            return {
+                "label":          "insufficient_data",
+                "explanation":    "P/E data unavailable for CCA verdict.",
+                "pe_premium_pct": None,
+                "roe_percentile": roe_percentile,
+            }
+
+        roe_str = f"{roe_percentile:.0f}th" if roe_percentile is not None else "unknown"
+
+        if pe_premium > self.PREMIUM_THRESHOLD:
+            if roe_percentile is not None and roe_percentile >= self.HIGH_ROE_PERCENTILE:
+                label = "justified_premium"
+                explanation = (
+                    f"Trading at {pe_premium:+.1f}% P/E premium to sector median, "
+                    f"but ROE ranks in {roe_str} percentile of peers — "
+                    "premium appears earned. Neutral/Buy."
+                )
+            else:
+                label = "overvalued"
+                explanation = (
+                    f"Trading at {pe_premium:+.1f}% P/E premium to sector median "
+                    f"with ROE in {roe_str} percentile — "
+                    "premium not supported by returns. Sell signal."
+                )
+        elif pe_premium < self.DISCOUNT_THRESHOLD:
+            if roe_percentile is not None and roe_percentile >= self.HIGH_ROE_PERCENTILE:
+                label = "undervalued_gem"
+                explanation = (
+                    f"Trading at {pe_premium:+.1f}% P/E discount to sector median "
+                    f"with ROE in {roe_str} percentile — "
+                    "strong returns at a discount. Strong Buy."
+                )
+            else:
+                label = "discount"
+                explanation = (
+                    f"Trading at {pe_premium:+.1f}% P/E discount to sector median "
+                    f"with ROE in {roe_str} percentile — "
+                    "discount may reflect weaker returns. Review before buying."
+                )
+        else:
+            label = "fair_value"
+            explanation = (
+                f"Trading within ±{self.PREMIUM_THRESHOLD:.0f}% of sector P/E median "
+                f"({pe_premium:+.1f}%) — broadly at fair value."
+            )
+
+        return {
+            "label":          label,
+            "explanation":    explanation,
+            "pe_premium_pct": pe_premium,
+            "roe_percentile": roe_percentile,
+        }
+
+
 class FundamentalAnalysisEngine:
     """Normalize raw fundamental metrics and produce structured analysis."""
 
