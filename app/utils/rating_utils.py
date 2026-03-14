@@ -20,7 +20,7 @@ from sqlalchemy import desc
 from config import get_settings
 from database import SessionLocal
 import app.models as models
-from services.macro_service import MacroeconomicService
+from services.economic_service import EconomicService
 
 
 class FinnhubClient:
@@ -77,16 +77,16 @@ class RatingService:
             if hasattr(settings, "fred_api_key")
             else os.getenv("FRED_API_KEY")
         )
-        self.macro_service = MacroeconomicService(api_key=fred_key)
+        self.economic_service = EconomicService(api_key=fred_key)
 
-        self._macro_cache = None
-        self._macro_cache_time = None
+        self._economic_cache = None
+        self._economic_cache_time = None
 
         self.weights = {
             "technical": 0.25,
             "analyst": 0.25,
             "fundamental": 0.25,
-            "macro": 0.25,
+            "economic": 0.25,
         }
 
         self.technical_ttl_hours = 6
@@ -101,14 +101,14 @@ class RatingService:
             fundamental = self._get_or_fetch_fundamental(stock, db)
             fundamental_score = self._calculate_fundamental_score(fundamental)
             analyst_score = self._get_analyst_score(symbol)
-            macro_data = self._get_macro_score()
-            macro_score = macro_data["macro_score"]
+            economic_data = self._get_economic_score()
+            economic_score = economic_data["economic_score"]
 
             overall_rating = (
                 technical_score * self.weights["technical"]
                 + analyst_score * self.weights["analyst"]
                 + fundamental_score * self.weights["fundamental"]
-                + macro_score * self.weights["macro"]
+                + economic_score * self.weights["economic"]
             )
 
             return {
@@ -116,14 +116,14 @@ class RatingService:
                 "technical_score": round(technical_score, 2),
                 "analyst_score": round(analyst_score, 2),
                 "fundamental_score": round(fundamental_score, 2),
-                "macro_score": round(macro_score, 2),
-                "macro_analysis": macro_data.get("analysis", ""),
-                "macro_components": macro_data.get("components", {}),
+                "economic_score": round(economic_score, 2),
+                "economic_analysis": economic_data.get("analysis", ""),
+                "economic_components": economic_data.get("components", {}),
                 "data_sources": {
                     "technical": "finnhub",
                     "analyst": "finnhub",
                     "fundamental": "finnhub",
-                    "macro": macro_data.get("data_source", "FRED"),
+                    "economic": economic_data.get("data_source", "FRED"),
                     "cached": {
                         "technical": (
                             technical.calculated_at.isoformat() if technical else None
@@ -329,15 +329,15 @@ class RatingService:
             print(f"Error getting analyst score: {e}")
             return 5.0
 
-    def _get_macro_score(self) -> Dict:
-        if self._macro_cache and self._macro_cache_time:
-            if datetime.now() - self._macro_cache_time < timedelta(hours=1):
-                return self._macro_cache
+    def _get_economic_score(self) -> Dict:
+        if self._economic_cache and self._economic_cache_time:
+            if datetime.now() - self._economic_cache_time < timedelta(hours=1):
+                return self._economic_cache
 
-        macro_data = self.macro_service.calculate_macro_score()
-        self._macro_cache = macro_data
-        self._macro_cache_time = datetime.now()
-        return macro_data
+        economic_data = self.economic_service.calculate_economic_score()
+        self._economic_cache = economic_data
+        self._economic_cache_time = datetime.now()
+        return economic_data
 
     def _calculate_technical_score(self, technical: models.TechnicalIndicator) -> float:
         try:

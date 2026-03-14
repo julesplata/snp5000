@@ -56,7 +56,7 @@ class RatingBase(BaseModel):
     technical_score: Optional[float] = None
     analyst_score: Optional[float] = None
     fundamental_score: Optional[float] = None
-    macro_score: Optional[float] = None
+    economic_score: Optional[float] = None
     data_sources: Optional[dict] = None
     notes: Optional[str] = None
 
@@ -205,7 +205,7 @@ class NewsSummary(BaseModel):
     latest_published_at: Optional[datetime]
 
 
-class MacroHealth(BaseModel):
+class EconomicHealth(BaseModel):
     status: Literal["healthy", "warning", "error", "degraded"]
     message: str
     recommendation: Optional[str] = None
@@ -274,10 +274,10 @@ class RatingHistoryResponse(BaseModel):
     ratings: List[Rating]
 
 
-# Macro Schemas
-class MacroSnapshot(BaseModel):
+# Economic Schemas
+class EconomicSnapshot(BaseModel):
     id: int
-    macro_score: Optional[float] = None
+    economic_score: Optional[float] = None
     components: Optional[dict] = None
     indicators: Optional[dict] = None
     indicator_context: Optional[dict] = None

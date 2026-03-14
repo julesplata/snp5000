@@ -1,5 +1,5 @@
 """
-Lightweight job runner for scheduled tasks (ratings refresh, macro snapshots).
+Lightweight job runner for scheduled tasks (ratings refresh, economic snapshots).
 
 Examples:
   # Recalculate ratings for all stocks (safe on a cron)
@@ -8,8 +8,8 @@ Examples:
   # Only recalc first 50 stocks
   python jobs/runner.py recalc-ratings --limit 50
 
-  # Refresh macro snapshot
-  python jobs/runner.py refresh-macro
+  # Refresh economic snapshot
+  python jobs/runner.py refresh-economic
 
   # Refresh all quotes
   python jobs/runner.py refresh-quotes
@@ -17,7 +17,7 @@ Examples:
   # Refresh news for every stock (and prune stale articles)
   python jobs/runner.py refresh-news --lookback-hours 12
 
-This script is idempotent-ish: it upserts new ratings and macro snapshots
+This script is idempotent-ish: it upserts new ratings and economic snapshots
 without deleting historical data. It also writes a simple job_runs log table
 for observability; the table is created if missing.
 """
@@ -40,8 +40,8 @@ import app.models as models
 from app.utils.rating_utils import RatingService
 from config import get_settings
 from database import SessionLocal, engine
-import app.crud.macro_snapshot as macro_crud
-from services.macro_service import MacroeconomicService
+import app.crud.economic_snapshot as economic_crud
+from services.economic_service import EconomicService
 from app.services.quote import QuoteService
 from app.services.news import NewsService
 
@@ -106,12 +106,12 @@ def log_job_end(job_id: int, status: str, processed: int, error: Optional[str] =
         )
 
 
-def task_refresh_macro() -> int:
+def task_refresh_economic() -> int:
     db = SessionLocal()
     try:
-        svc = MacroeconomicService()
-        data = svc.calculate_macro_score()
-        macro_crud.save_snapshot(db, data)
+        svc = EconomicService()
+        data = svc.calculate_economic_score()
+        economic_crud.save_snapshot(db, data)
         return 1
     finally:
         db.close()
@@ -175,7 +175,7 @@ def task_recalc_ratings(
                 technical_score=rating_data.get("technical_score"),
                 analyst_score=rating_data.get("analyst_score"),
                 fundamental_score=rating_data.get("fundamental_score"),
-                macro_score=rating_data.get("macro_score"),
+                economic_score=rating_data.get("economic_score"),
                 notes="Automated refresh",
                 rating_date=dt.datetime.utcnow(),
                 data_sources=rating_data.get("data_sources"),
@@ -197,7 +197,7 @@ def main():
     recalc.add_argument("--limit", type=int, help="Limit number of stocks")
     recalc.add_argument("--symbol", type=str, help="Only process one symbol")
 
-    sub.add_parser("refresh-macro", help="Fetch and store macro snapshot")
+    sub.add_parser("refresh-economic", help="Fetch and store economic snapshot")
     sub.add_parser("refresh-quotes", help="Refresh quotes for all stocks")
 
     refresh_news = sub.add_parser(
@@ -219,8 +219,8 @@ def main():
         logger.info("Executing command %s", args.command)
         if args.command == "recalc-ratings":
             processed = task_recalc_ratings(limit=args.limit, symbol=args.symbol)
-        elif args.command == "refresh-macro":
-            processed = task_refresh_macro()
+        elif args.command == "refresh-economic":
+            processed = task_refresh_economic()
         elif args.command == "refresh-quotes":
             processed = task_refresh_quotes()
         elif args.command == "refresh-news":

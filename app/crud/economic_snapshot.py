@@ -4,9 +4,9 @@ from typing import Optional, Dict
 import app.models as models
 
 
-def save_snapshot(db: Session, data: Dict) -> models.MacroSnapshot:
-    snapshot = models.MacroSnapshot(
-        macro_score=data.get("macro_score"),
+def save_snapshot(db: Session, data: Dict) -> models.EconomicSnapshot:
+    snapshot = models.EconomicSnapshot(
+        economic_score=data.get("economic_score"),
         components=data.get("components"),
         indicators=data.get("indicators"),
         indicator_context=data.get("indicator_context"),
@@ -20,14 +20,14 @@ def save_snapshot(db: Session, data: Dict) -> models.MacroSnapshot:
     return snapshot
 
 
-def get_latest_snapshot(db: Session) -> Optional[models.MacroSnapshot]:
+def get_latest_snapshot(db: Session) -> Optional[models.EconomicSnapshot]:
     return (
-        db.query(models.MacroSnapshot)
-        .order_by(models.MacroSnapshot.created_at.desc())
+        db.query(models.EconomicSnapshot)
+        .order_by(models.EconomicSnapshot.created_at.desc())
         .first()
     )
 
 
 def clear_snapshots(db: Session) -> None:
-    db.query(models.MacroSnapshot).delete()
+    db.query(models.EconomicSnapshot).delete()
     db.commit()

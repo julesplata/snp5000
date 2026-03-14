@@ -10,7 +10,7 @@ from app.api import (
     stocks,
     ratings,
     sectors,
-    macro,
+    economic,
     news,
     quotes,
     analyst,
@@ -59,7 +59,7 @@ app.add_middleware(
 app.include_router(stocks.router, prefix="/api/stocks", tags=["stocks"])
 app.include_router(ratings.router, prefix="/api/ratings", tags=["ratings"])
 app.include_router(sectors.router, prefix="/api/sectors", tags=["sectors"])
-app.include_router(macro.router, prefix="/api/macro", tags=["macroeconomics"])
+app.include_router(economic.router, prefix="/api/economic", tags=["economics"])
 app.include_router(news.router, prefix="/api", tags=["news"])
 app.include_router(quotes.router, prefix="/api", tags=["quotes"])
 app.include_router(analyst.router, prefix="/api", tags=["analyst"])

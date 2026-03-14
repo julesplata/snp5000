@@ -89,7 +89,7 @@ def list_stocks(
                 "technical_score",
                 "analyst_score",
                 "fundamental_score",
-                "macro_score",
+                "economic_score",
             ]:
                 if k in rating_dict:
                     rating_dict[k] = _r2(rating_dict[k])
@@ -138,7 +138,7 @@ def get_stock(db: Session, stock_id: int) -> schemas.StockWithLatestRating:
             "technical_score",
             "analyst_score",
             "fundamental_score",
-            "macro_score",
+            "economic_score",
         ]:
             if k in rd:
                 rd[k] = _r2(rd[k])

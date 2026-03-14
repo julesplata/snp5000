@@ -23,7 +23,7 @@ def calculate_and_store_rating(db: Session, stock_id: int):
         technical_score=data.get("technical_score"),
         analyst_score=data.get("analyst_score"),
         fundamental_score=data.get("fundamental_score"),
-        macro_score=data.get("macro_score"),
+        economic_score=data.get("economic_score"),
         data_sources=data.get("data_sources"),
         notes="Auto-generated rating (Finnhub)",
     )

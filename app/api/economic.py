@@ -4,15 +4,15 @@ from sqlalchemy.orm import Session
 import os
 
 from database import get_db
-from services.macro_service import MacroeconomicService
-import app.crud.macro_snapshot as macro_crud
+from services.economic_service import EconomicService
+import app.crud.economic_snapshot as economic_crud
 import app.schemas as schemas
 from config import get_settings
 
 router = APIRouter()
 
 settings = get_settings()
-macro_service = MacroeconomicService(api_key=settings.fred_api_key)
+economic_service = EconomicService(api_key=settings.fred_api_key)
 
 
 def _r2(val):
@@ -42,7 +42,7 @@ def _normalize_snapshot(snapshot) -> Dict[str, Any]:
 
     return {
         "id": snapshot.id if hasattr(snapshot, "id") else None,
-        "macro_score": _r2(snapshot.macro_score),
+        "economic_score": _r2(snapshot.economic_score),
         "components": components,
         "indicators": normalized_indicators,
         "analysis": snapshot.analysis,
@@ -52,22 +52,22 @@ def _normalize_snapshot(snapshot) -> Dict[str, Any]:
 
 
 @router.get("/", response_model=Dict)
-def get_macro_environment(db: Session = Depends(get_db)):
+def get_economic_environment(db: Session = Depends(get_db)):
     try:
-        snapshot = macro_crud.get_latest_snapshot(db)
+        snapshot = economic_crud.get_latest_snapshot(db)
         if not snapshot:
             snapshot = _refresh_and_store(db)
         return _normalize_snapshot(snapshot)
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Error fetching macro data: {str(e)}"
+            status_code=500, detail=f"Error fetching economic data: {str(e)}"
         )
 
 
 @router.get("/indicators", response_model=Dict)
-def get_macro_indicators(db: Session = Depends(get_db)):
+def get_economic_indicators(db: Session = Depends(get_db)):
     try:
-        snapshot = macro_crud.get_latest_snapshot(db)
+        snapshot = economic_crud.get_latest_snapshot(db)
         if not snapshot:
             snapshot = _refresh_and_store(db)
         normalized = _normalize_snapshot(snapshot)
@@ -83,27 +83,27 @@ def get_macro_indicators(db: Session = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=Dict)
-def refresh_macro_data(db: Session = Depends(get_db)):
+def refresh_economic_data(db: Session = Depends(get_db)):
     try:
         snapshot = _refresh_and_store(db)
         return _normalize_snapshot(snapshot)
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Error refreshing macro data: {str(e)}"
+            status_code=500, detail=f"Error refreshing economic data: {str(e)}"
         )
 
 
-@router.get("/health", response_model=schemas.MacroHealth)
-def check_macro_service():
+@router.get("/health", response_model=schemas.EconomicHealth)
+def check_economic_service():
     has_api_key = bool(os.getenv("FRED_API_KEY"))
     if not has_api_key:
         return {
             "status": "degraded",
-            "message": "FRED_API_KEY not configured - macro scores default to 5.0",
-            "recommendation": "Add FRED_API_KEY to enable macro analysis",
+            "message": "FRED_API_KEY not configured - economic scores default to 5.0",
+            "recommendation": "Add FRED_API_KEY to enable economic analysis",
         }
     try:
-        test_data = macro_service._fetch_latest_value("fed_funds_rate")
+        test_data = economic_service._fetch_latest_value("fed_funds_rate")
         if test_data:
             return {
                 "status": "healthy",
@@ -124,5 +124,5 @@ def check_macro_service():
 
 
 def _refresh_and_store(db: Session):
-    macro_data = macro_service.calculate_macro_score()
-    return macro_crud.save_snapshot(db, macro_data)
+    economic_data = economic_service.calculate_economic_score()
+    return economic_crud.save_snapshot(db, economic_data)

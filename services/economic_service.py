@@ -4,10 +4,10 @@ from datetime import datetime, timedelta
 import os
 
 
-class MacroeconomicService:
+class EconomicService:
     """
-    Fetch and analyze macroeconomic indicators from FRED
-    Calculates a macro score (0-10) based on current economic conditions
+    Fetch and analyze economic indicators from FRED
+    Calculates an economic score (0-10) based on current economic conditions
     """
 
     def __init__(self, api_key: str = None):
@@ -18,7 +18,7 @@ class MacroeconomicService:
 
         if not self.api_key:
             print(
-                "WARNING: FRED_API_KEY not set. Macro score will default to neutral (5.0)"
+                "WARNING: FRED_API_KEY not set. Economic score will default to neutral (5.0)"
             )
 
         # FRED series IDs for key indicators
@@ -46,12 +46,12 @@ class MacroeconomicService:
         # Cache release lookups to avoid extra API calls
         self._release_cache: Dict[str, Dict] = {}
 
-    def calculate_macro_score(self) -> Dict:
+    def calculate_economic_score(self) -> Dict:
         """
-        Calculate overall macroeconomic score (0-10)
+        Calculate overall economic conditions score (0-10)
 
         Returns dict with:
-        - macro_score: Overall score
+        - economic_score: Overall score
         - components: Individual indicator scores
         - indicators: Raw indicator values
         - analysis: Text explanation
@@ -95,7 +95,7 @@ class MacroeconomicService:
                 "sentiment": 0.10,
             }
 
-            macro_score = (
+            economic_score = (
                 interest_rate_score * weights["interest_rates"]
                 + inflation_score * weights["inflation"]
                 + growth_score * weights["growth"]
@@ -106,7 +106,7 @@ class MacroeconomicService:
 
             # Generate analysis text
             analysis = self._generate_analysis(
-                macro_score,
+                economic_score,
                 indicators,
                 {
                     "interest_rates": interest_rate_score,
@@ -132,7 +132,7 @@ class MacroeconomicService:
             )
 
             return {
-                "macro_score": round(macro_score, 2),
+                "economic_score": round(economic_score, 2),
                 "components": {
                     "interest_rates": round(interest_rate_score, 2),
                     "inflation": round(inflation_score, 2),
@@ -149,7 +149,7 @@ class MacroeconomicService:
             }
 
         except Exception as e:
-            print(f"Error calculating macro score: {e}")
+            print(f"Error calculating economic score: {e}")
             return self._get_default_score()
 
     def _fetch_all_indicators(self) -> Tuple[Dict, Dict]:
@@ -581,19 +581,19 @@ class MacroeconomicService:
             return 8.0
 
     def _generate_analysis(
-        self, macro_score: float, indicators: Dict, components: Dict
+        self, economic_score: float, indicators: Dict, components: Dict
     ) -> str:
-        """Generate human-readable analysis of macro conditions"""
+        """Generate human-readable analysis of economic conditions"""
 
         # Overall assessment
-        if macro_score >= 8.0:
-            overall = "Favorable macroeconomic environment for stocks"
-        elif macro_score >= 6.0:
-            overall = "Moderately supportive macro conditions"
-        elif macro_score >= 4.0:
-            overall = "Mixed macroeconomic signals"
+        if economic_score >= 8.0:
+            overall = "Favorable economic environment for stocks"
+        elif economic_score >= 6.0:
+            overall = "Moderately supportive economic conditions"
+        elif economic_score >= 4.0:
+            overall = "Mixed economic signals"
         else:
-            overall = "Challenging macro environment for equities"
+            overall = "Challenging economic environment for equities"
 
         # Key concerns/positives
         concerns = []
@@ -760,7 +760,7 @@ class MacroeconomicService:
     def _get_default_score(self) -> Dict:
         """Return neutral score when API key is not available"""
         return {
-            "macro_score": 5.0,
+            "economic_score": 5.0,
             "components": {
                 "interest_rates": 5.0,
                 "inflation": 5.0,
@@ -772,6 +772,6 @@ class MacroeconomicService:
             "indicators": {},
             "indicator_context": {},
             "indicator_meta": {},
-            "analysis": "Macro score unavailable (FRED API key not configured)",
+            "analysis": "Economic score unavailable (FRED API key not configured)",
             "data_source": "default",
         }

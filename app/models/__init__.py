@@ -67,7 +67,7 @@ class Rating(Base):
     technical_score = Column(Float, nullable=True)
     analyst_score = Column(Float, nullable=True)
     fundamental_score = Column(Float, nullable=True)
-    macro_score = Column(Float, nullable=True)
+    economic_score = Column(Float, nullable=True)
 
     rating_date = Column(DateTime, default=datetime.utcnow, index=True)
     data_sources = Column(JSON, nullable=True)
@@ -76,11 +76,11 @@ class Rating(Base):
     stock = relationship("Stock", back_populates="ratings")
 
 
-class MacroSnapshot(Base):
-    __tablename__ = "macro_snapshots"
+class EconomicSnapshot(Base):
+    __tablename__ = "economic_snapshots"
 
     id = Column(Integer, primary_key=True, index=True)
-    macro_score = Column(Float, nullable=True)
+    economic_score = Column(Float, nullable=True)
     components = Column(JSON, nullable=True)
     indicators = Column(JSON, nullable=True)
     indicator_context = Column(JSON, nullable=True)
