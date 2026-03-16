@@ -47,6 +47,7 @@ def _build_slim_response(row, investment_style: str) -> dict:
         "cashflow_score": row.cashflow_score,
         "efficiency_score": row.efficiency_score,
         "overall_fundamental_rating": row.overall_fundamental_rating,
+        "peer_cca": (row.narrative or {}).get("peer_cca"),
     }
 
 

@@ -7,12 +7,14 @@ from database import get_db
 from services.economic_service import EconomicService
 import app.crud.economic_snapshot as economic_crud
 import app.schemas as schemas
+from app.services.sector_economic_rating import SectorEconomicRatingService
 from config import get_settings
 
 router = APIRouter()
 
 settings = get_settings()
 economic_service = EconomicService(api_key=settings.fred_api_key)
+sector_rating_service = SectorEconomicRatingService()
 
 
 def _r2(val):
@@ -125,4 +127,6 @@ def check_economic_service():
 
 def _refresh_and_store(db: Session):
     economic_data = economic_service.calculate_economic_score()
-    return economic_crud.save_snapshot(db, economic_data)
+    snapshot = economic_crud.save_snapshot(db, economic_data)
+    sector_rating_service.rate_all_sectors(db, snapshot)
+    return snapshot

@@ -167,6 +167,26 @@ class FundamentalAnalysisSlimResponse(BaseModel):
     cashflow_score: Optional[float] = None
     efficiency_score: Optional[float] = None
     overall_fundamental_rating: Optional[float] = None
+    # Comparable Company Analysis (sector peer comparison)
+    peer_cca: Optional[dict] = None
+
+
+class SectorEconomicRatingResponse(BaseModel):
+    id: int
+    sector_id: int
+    economic_score: Optional[float] = None
+    gdp_sensitivity_score: Optional[float] = None
+    rate_sensitivity_score: Optional[float] = None
+    inflation_sensitivity_score: Optional[float] = None
+    employment_sensitivity_score: Optional[float] = None
+    components: Optional[dict] = None
+    economic_snapshot_id: Optional[int] = None
+    analysis: Optional[str] = None
+    data_source: Optional[str] = None
+    rated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 # News Schemas

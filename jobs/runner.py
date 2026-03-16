@@ -42,6 +42,7 @@ from config import get_settings
 from database import SessionLocal, engine
 import app.crud.economic_snapshot as economic_crud
 from services.economic_service import EconomicService
+from app.services.sector_economic_rating import SectorEconomicRatingService
 from app.services.quote import QuoteService
 from app.services.news import NewsService
 
@@ -111,7 +112,8 @@ def task_refresh_economic() -> int:
     try:
         svc = EconomicService()
         data = svc.calculate_economic_score()
-        economic_crud.save_snapshot(db, data)
+        snapshot = economic_crud.save_snapshot(db, data)
+        SectorEconomicRatingService().rate_all_sectors(db, snapshot)
         return 1
     finally:
         db.close()
