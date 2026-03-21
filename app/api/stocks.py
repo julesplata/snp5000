@@ -22,9 +22,9 @@ def list_stocks(
     max_rating: Optional[float] = None,
     search: Optional[str] = None,
     sort_by: Literal["name", "symbol", "market_cap", "rating", "created_at"] = Query(
-        "name", description="Field to sort by"
+        "rating", description="Field to sort by"
     ),
-    sort_dir: Literal["asc", "desc"] = Query("asc", description="Sort direction"),
+    sort_dir: Literal["asc", "desc"] = Query("desc", description="Sort direction"),
     db: Session = Depends(get_db),
 ):
     return stock_crud.list_stocks(
