@@ -219,7 +219,9 @@ class RatingService:
                 f"Price history fetch failed for {symbol}: stooq error: {exc}"
             )
 
-        raise ValueError(f"Price history fetch failed for {symbol}: stooq returned no data")
+        raise ValueError(
+            f"Price history fetch failed for {symbol}: stooq returned no data"
+        )
 
     def _compute_and_store_technical(
         self, stock: models.Stock, hist: pd.DataFrame, db: Session

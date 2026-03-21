@@ -149,12 +149,12 @@ class FundamentalAnalysis(Base):
     analyzed_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     # Pillar-based standalone rating (1–10 scale per pillar + overall)
-    valuation_score            = Column(Float, nullable=True)
-    profitability_score        = Column(Float, nullable=True)
-    growth_score               = Column(Float, nullable=True)
-    health_score               = Column(Float, nullable=True)
-    cashflow_score             = Column(Float, nullable=True)
-    efficiency_score           = Column(Float, nullable=True)
+    valuation_score = Column(Float, nullable=True)
+    profitability_score = Column(Float, nullable=True)
+    growth_score = Column(Float, nullable=True)
+    health_score = Column(Float, nullable=True)
+    cashflow_score = Column(Float, nullable=True)
+    efficiency_score = Column(Float, nullable=True)
     overall_fundamental_rating = Column(Float, nullable=True)
 
     __table_args__ = (Index("idx_fa_stock_analyzed", "stock_id", "analyzed_at"),)
@@ -232,16 +232,16 @@ class NewsArticle(Base):
 class SectorEconomicRating(Base):
     __tablename__ = "sector_economic_ratings"
 
-    id        = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     sector_id = Column(Integer, ForeignKey("sectors.id"), nullable=False)
 
     # Top-level score (same 0–10 scale as other pillars)
     economic_score = Column(Float, nullable=True)
 
     # Sector-specific sensitivity sub-scores
-    gdp_sensitivity_score        = Column(Float, nullable=True)
-    rate_sensitivity_score       = Column(Float, nullable=True)
-    inflation_sensitivity_score  = Column(Float, nullable=True)
+    gdp_sensitivity_score = Column(Float, nullable=True)
+    rate_sensitivity_score = Column(Float, nullable=True)
+    inflation_sensitivity_score = Column(Float, nullable=True)
     employment_sensitivity_score = Column(Float, nullable=True)
 
     # Flexible breakdown for additional factors / raw weights
@@ -252,13 +252,11 @@ class SectorEconomicRating(Base):
         Integer, ForeignKey("economic_snapshots.id"), nullable=True
     )
 
-    analysis    = Column(Text, nullable=True)
+    analysis = Column(Text, nullable=True)
     data_source = Column(String, nullable=True)
-    rated_at    = Column(DateTime, default=datetime.utcnow, index=True)
+    rated_at = Column(DateTime, default=datetime.utcnow, index=True)
 
-    sector            = relationship("Sector", back_populates="economic_ratings")
+    sector = relationship("Sector", back_populates="economic_ratings")
     economic_snapshot = relationship("EconomicSnapshot")
 
-    __table_args__ = (
-        Index("idx_ser_sector_rated", "sector_id", "rated_at"),
-    )
+    __table_args__ = (Index("idx_ser_sector_rated", "sector_id", "rated_at"),)

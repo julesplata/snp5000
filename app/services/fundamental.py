@@ -9,8 +9,16 @@ import app.crud.fundamental as fundamental_crud
 import app.crud.fundamental_analysis as fundamental_analysis_crud
 import app.models as models
 import app.schemas as schemas
-from app.services.fundamental_analysis import ComparableAnalysis, FundamentalAnalysisEngine
-from app.services.pillar_rating import PillarRatingCalculator, PillarResult, PillarValidator, StockContext
+from app.services.fundamental_analysis import (
+    ComparableAnalysis,
+    FundamentalAnalysisEngine,
+)
+from app.services.pillar_rating import (
+    PillarRatingCalculator,
+    PillarResult,
+    PillarValidator,
+    StockContext,
+)
 from app.utils.rating_utils import FinnhubClient
 from config import get_settings
 
@@ -96,23 +104,34 @@ class FundamentalService:
             market_cap=stock.market_cap if stock else None,
             current_price=stock.current_price if stock else None,
         )
-        pillar = PillarRatingCalculator().compute(raw_record.raw_metrics or {}, stock_ctx)
+        pillar = PillarRatingCalculator().compute(
+            raw_record.raw_metrics or {}, stock_ctx
+        )
 
         # CCA: sector peer comparison
-        peer_metrics_list, sector_name = self._build_peer_metrics(db, raw_record.stock_id)
+        peer_metrics_list, sector_name = self._build_peer_metrics(
+            db, raw_record.stock_id
+        )
         raw = raw_record.raw_metrics or {}
         stock_metrics: Dict[str, Optional[float]] = {
-            "pe_ratio":       self._first_metric(raw, ["peBasicExclExtraTTM", "peTTM"]),
-            "pb_ratio":       self._first_metric(raw, ["pbAnnual", "pbQuarterly"]),
-            "debt_to_equity": self._first_metric(raw, [
-                "totalDebt/totalEquityAnnual",
-                "totalDebt/totalEquityQuarterly",
-                "totalDebtToEquityAnnual",
-            ]),
-            "net_margin":     self._first_metric(raw, ["netProfitMarginTTM", "netProfitMarginAnnual"]),
-            "roe":            self._first_metric(raw, ["roeTTM", "roeRfy"]),
+            "pe_ratio": self._first_metric(raw, ["peBasicExclExtraTTM", "peTTM"]),
+            "pb_ratio": self._first_metric(raw, ["pbAnnual", "pbQuarterly"]),
+            "debt_to_equity": self._first_metric(
+                raw,
+                [
+                    "totalDebt/totalEquityAnnual",
+                    "totalDebt/totalEquityQuarterly",
+                    "totalDebtToEquityAnnual",
+                ],
+            ),
+            "net_margin": self._first_metric(
+                raw, ["netProfitMarginTTM", "netProfitMarginAnnual"]
+            ),
+            "roe": self._first_metric(raw, ["roeTTM", "roeRfy"]),
         }
-        cca_result = ComparableAnalysis(stock_metrics, peer_metrics_list, sector_name).analyze()
+        cca_result = ComparableAnalysis(
+            stock_metrics, peer_metrics_list, sector_name
+        ).analyze()
 
         narrative = result["narrative"]
         narrative["peer_cca"] = cca_result
@@ -139,15 +158,22 @@ class FundamentalService:
 
         # Server-side validation: sanity checks, sensitivity analysis, distribution
         try:
-            sector_pillar_scores = self._build_sector_pillar_scores(db, raw_record.stock_id)
+            sector_pillar_scores = self._build_sector_pillar_scores(
+                db, raw_record.stock_id
+            )
             PillarValidator().run_all(
-                pillar, raw_record.raw_metrics or {}, raw_record.stock_id,
+                pillar,
+                raw_record.raw_metrics or {},
+                raw_record.stock_id,
                 sector_pillar_scores=sector_pillar_scores,
             )
             self._log_distribution_check(db, raw_record.stock_id, pillar)
             self._log_cca_result(raw_record.stock_id, cca_result)
         except Exception:
-            logger.exception("pillar_validation failed for stock_id=%d (non-fatal)", raw_record.stock_id)
+            logger.exception(
+                "pillar_validation failed for stock_id=%d (non-fatal)",
+                raw_record.stock_id,
+            )
 
         return row
 
@@ -182,17 +208,26 @@ class FundamentalService:
             if fi is None:
                 continue
             raw = fi.raw_metrics or {}
-            peer_metrics.append({
-                "pe_ratio":       self._first_metric(raw, ["peBasicExclExtraTTM", "peTTM"]),
-                "pb_ratio":       self._first_metric(raw, ["pbAnnual", "pbQuarterly"]),
-                "debt_to_equity": self._first_metric(raw, [
-                    "totalDebt/totalEquityAnnual",
-                    "totalDebt/totalEquityQuarterly",
-                    "totalDebtToEquityAnnual",
-                ]),
-                "net_margin":     self._first_metric(raw, ["netProfitMarginTTM", "netProfitMarginAnnual"]),
-                "roe":            self._first_metric(raw, ["roeTTM", "roeRfy"]),
-            })
+            peer_metrics.append(
+                {
+                    "pe_ratio": self._first_metric(
+                        raw, ["peBasicExclExtraTTM", "peTTM"]
+                    ),
+                    "pb_ratio": self._first_metric(raw, ["pbAnnual", "pbQuarterly"]),
+                    "debt_to_equity": self._first_metric(
+                        raw,
+                        [
+                            "totalDebt/totalEquityAnnual",
+                            "totalDebt/totalEquityQuarterly",
+                            "totalDebtToEquityAnnual",
+                        ],
+                    ),
+                    "net_margin": self._first_metric(
+                        raw, ["netProfitMarginTTM", "netProfitMarginAnnual"]
+                    ),
+                    "roe": self._first_metric(raw, ["roeTTM", "roeRfy"]),
+                }
+            )
 
         return peer_metrics, sector_name
 
@@ -228,12 +263,12 @@ class FundamentalService:
         )
         return [
             {
-                "valuation":     a.valuation_score,
+                "valuation": a.valuation_score,
                 "profitability": a.profitability_score,
-                "growth":        a.growth_score,
-                "health":        a.health_score,
-                "cashflow":      a.cashflow_score,
-                "efficiency":    a.efficiency_score,
+                "growth": a.growth_score,
+                "health": a.health_score,
+                "cashflow": a.cashflow_score,
+                "efficiency": a.efficiency_score,
             }
             for a in analyses
         ]
@@ -253,15 +288,17 @@ class FundamentalService:
             verdict.get("roe_percentile"),
         )
 
-    def _log_distribution_check(self, db: Session, stock_id: int, pillar: PillarResult) -> None:
+    def _log_distribution_check(
+        self, db: Session, stock_id: int, pillar: PillarResult
+    ) -> None:
         """Log each pillar score's percentile rank across all stocks in the DB."""
         fields = [
-            ("valuation_score",            pillar.valuation_score),
-            ("profitability_score",        pillar.profitability_score),
-            ("growth_score",               pillar.growth_score),
-            ("health_score",               pillar.health_score),
-            ("cashflow_score",             pillar.cashflow_score),
-            ("efficiency_score",           pillar.efficiency_score),
+            ("valuation_score", pillar.valuation_score),
+            ("profitability_score", pillar.profitability_score),
+            ("growth_score", pillar.growth_score),
+            ("health_score", pillar.health_score),
+            ("cashflow_score", pillar.cashflow_score),
+            ("efficiency_score", pillar.efficiency_score),
             ("overall_fundamental_rating", pillar.overall_fundamental_rating),
         ]
         for field_name, score in fields:
@@ -275,7 +312,11 @@ class FundamentalService:
             pct = round(below / total * 100, 1)
             logger.info(
                 "pillar_distribution stock_id=%d: %s=%.4f is %.1f percentile (n=%d stocks)",
-                stock_id, field_name, score, pct, total,
+                stock_id,
+                field_name,
+                score,
+                pct,
+                total,
             )
 
     def _store_analysis(

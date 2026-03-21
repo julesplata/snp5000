@@ -46,7 +46,6 @@ from app.services.sector_economic_rating import SectorEconomicRatingService
 from app.services.quote import QuoteService
 from app.services.news import NewsService
 
-
 settings = get_settings()
 logging.basicConfig(
     level=getattr(logging, str(settings.log_level).upper(), logging.INFO),
@@ -89,7 +88,12 @@ def log_job_end(job_id: int, status: str, processed: int, error: Optional[str] =
     if status == "success":
         logger.info("Job finished with status=%s processed=%s", status, processed)
     else:
-        logger.error("Job finished with status=%s processed=%s error=%s", status, processed, error)
+        logger.error(
+            "Job finished with status=%s processed=%s error=%s",
+            status,
+            processed,
+            error,
+        )
     with engine.begin() as conn:
         conn.execute(
             text(
@@ -134,9 +138,7 @@ def task_refresh_news(lookback_hours: int = 12) -> int:
     db = SessionLocal()
     try:
         svc = NewsService()
-        result = svc.fetch_and_store_all_company_news(
-            db, lookback_hours=lookback_hours
-        )
+        result = svc.fetch_and_store_all_company_news(db, lookback_hours=lookback_hours)
         logger.info(
             "News refreshed: %s stocks processed, %s articles inserted",
             result.get("stocks_processed"),

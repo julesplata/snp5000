@@ -26,12 +26,13 @@ def _build_slim_response(row, investment_style: str) -> dict:
     composite_score = composite_scores.get(investment_style, {}).get("overall_score")
     narrative = row.narrative or {}
     slim_narrative = {
-        "strengths": narrative.get("strengths", []),
-        "weaknesses": narrative.get("weaknesses", []),
-        "verdict": narrative.get("verdict"),
-        "risk_rating": narrative.get("risk_rating"),
-        "confidence": narrative.get("confidence"),
-        "summary": narrative.get("summary"),
+        "signal":             narrative.get("signal"),
+        "core_strength":      narrative.get("core_strength"),
+        "critical_warning":   narrative.get("critical_warning"),
+        "actionable_context": narrative.get("actionable_context"),
+        "risk_rating":        narrative.get("risk_rating"),
+        "confidence":         narrative.get("confidence"),
+        "summary":            narrative.get("summary"),
     }
     return {
         "stock_id": row.stock_id,

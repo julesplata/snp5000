@@ -53,5 +53,7 @@ def get_latest_sector_economic_rating(
         .first()
     )
     if not row:
-        raise HTTPException(status_code=404, detail="No economic rating found for sector")
+        raise HTTPException(
+            status_code=404, detail="No economic rating found for sector"
+        )
     return row

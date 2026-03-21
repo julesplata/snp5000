@@ -48,6 +48,7 @@ Worked example (Technology sector, typical macro)
                                              ─────────────────────
     sector_economic_score                  = 7.20 / 10
 """
+
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -81,102 +82,102 @@ logger = logging.getLogger(__name__)
 SECTOR_WEIGHTS: Dict[str, Dict[str, float]] = {
     "technology": {
         "interest_rates": 0.20,
-        "inflation":       0.15,
-        "growth":          0.35,
-        "employment":      0.10,
-        "yield_curve":     0.10,
-        "sentiment":       0.10,
+        "inflation": 0.15,
+        "growth": 0.35,
+        "employment": 0.10,
+        "yield_curve": 0.10,
+        "sentiment": 0.10,
     },
     "financials": {
         "interest_rates": 0.30,
-        "inflation":       0.10,
-        "growth":          0.20,
-        "employment":      0.15,
-        "yield_curve":     0.20,
-        "sentiment":       0.05,
+        "inflation": 0.10,
+        "growth": 0.20,
+        "employment": 0.15,
+        "yield_curve": 0.20,
+        "sentiment": 0.05,
     },
     "utilities": {
         "interest_rates": 0.35,
-        "inflation":       0.20,
-        "growth":          0.10,
-        "employment":      0.05,
-        "yield_curve":     0.20,
-        "sentiment":       0.10,
+        "inflation": 0.20,
+        "growth": 0.10,
+        "employment": 0.05,
+        "yield_curve": 0.20,
+        "sentiment": 0.10,
     },
     "consumer discretionary": {
         "interest_rates": 0.15,
-        "inflation":       0.20,
-        "growth":          0.20,
-        "employment":      0.20,
-        "yield_curve":     0.05,
-        "sentiment":       0.20,
+        "inflation": 0.20,
+        "growth": 0.20,
+        "employment": 0.20,
+        "yield_curve": 0.05,
+        "sentiment": 0.20,
     },
     "consumer staples": {
         "interest_rates": 0.20,
-        "inflation":       0.30,
-        "growth":          0.10,
-        "employment":      0.15,
-        "yield_curve":     0.10,
-        "sentiment":       0.15,
+        "inflation": 0.30,
+        "growth": 0.10,
+        "employment": 0.15,
+        "yield_curve": 0.10,
+        "sentiment": 0.15,
     },
     "energy": {
         "interest_rates": 0.10,
-        "inflation":       0.25,
-        "growth":          0.25,
-        "employment":      0.15,
-        "yield_curve":     0.10,
-        "sentiment":       0.15,
+        "inflation": 0.25,
+        "growth": 0.25,
+        "employment": 0.15,
+        "yield_curve": 0.10,
+        "sentiment": 0.15,
     },
     "health care": {
         "interest_rates": 0.15,
-        "inflation":       0.20,
-        "growth":          0.20,
-        "employment":      0.20,
-        "yield_curve":     0.10,
-        "sentiment":       0.15,
+        "inflation": 0.20,
+        "growth": 0.20,
+        "employment": 0.20,
+        "yield_curve": 0.10,
+        "sentiment": 0.15,
     },
     "industrials": {
         "interest_rates": 0.15,
-        "inflation":       0.20,
-        "growth":          0.30,
-        "employment":      0.15,
-        "yield_curve":     0.10,
-        "sentiment":       0.10,
+        "inflation": 0.20,
+        "growth": 0.30,
+        "employment": 0.15,
+        "yield_curve": 0.10,
+        "sentiment": 0.10,
     },
     "materials": {
         "interest_rates": 0.10,
-        "inflation":       0.30,
-        "growth":          0.25,
-        "employment":      0.10,
-        "yield_curve":     0.10,
-        "sentiment":       0.15,
+        "inflation": 0.30,
+        "growth": 0.25,
+        "employment": 0.10,
+        "yield_curve": 0.10,
+        "sentiment": 0.15,
     },
     "real estate": {
         "interest_rates": 0.35,
-        "inflation":       0.20,
-        "growth":          0.15,
-        "employment":      0.10,
-        "yield_curve":     0.15,
-        "sentiment":       0.05,
+        "inflation": 0.20,
+        "growth": 0.15,
+        "employment": 0.10,
+        "yield_curve": 0.15,
+        "sentiment": 0.05,
     },
     "communication services": {
         "interest_rates": 0.20,
-        "inflation":       0.15,
-        "growth":          0.30,
-        "employment":      0.10,
-        "yield_curve":     0.10,
-        "sentiment":       0.15,
+        "inflation": 0.15,
+        "growth": 0.30,
+        "employment": 0.10,
+        "yield_curve": 0.10,
+        "sentiment": 0.15,
     },
 }
 
 # Fallback when the sector name doesn't match anything above
 DEFAULT_WEIGHTS: Dict[str, float] = {
     "interest_rates": 0.25,
-    "inflation":       0.25,
-    "growth":          0.20,
-    "employment":      0.10,
-    "yield_curve":     0.10,
-    "sentiment":       0.10,
+    "inflation": 0.25,
+    "growth": 0.20,
+    "employment": 0.10,
+    "yield_curve": 0.10,
+    "sentiment": 0.10,
 }
 
 
@@ -186,13 +187,16 @@ def _resolve_weights(sector_name: str) -> Dict[str, float]:
     for key, weights in SECTOR_WEIGHTS.items():
         if key in name_lower or name_lower in key:
             return weights
-    logger.debug("sector_economic_rating: no weight profile for '%s', using default", sector_name)
+    logger.debug(
+        "sector_economic_rating: no weight profile for '%s', using default", sector_name
+    )
     return DEFAULT_WEIGHTS
 
 
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
+
 
 class SectorEconomicRatingService:
     """
@@ -210,7 +214,8 @@ class SectorEconomicRatingService:
         macro = snapshot.components or {}
         if not macro:
             logger.warning(
-                "sector_economic_rating: snapshot_id=%d has no components, skipping", snapshot.id
+                "sector_economic_rating: snapshot_id=%d has no components, skipping",
+                snapshot.id,
             )
             return []
 
@@ -222,13 +227,16 @@ class SectorEconomicRatingService:
                 rows.append(row)
             except Exception:
                 logger.exception(
-                    "sector_economic_rating: failed for sector_id=%d (non-fatal)", sector.id
+                    "sector_economic_rating: failed for sector_id=%d (non-fatal)",
+                    sector.id,
                 )
                 db.rollback()
 
         logger.info(
             "sector_economic_rating: rated %d/%d sectors from snapshot_id=%d",
-            len(rows), len(sectors), snapshot.id,
+            len(rows),
+            len(sectors),
+            snapshot.id,
         )
         return rows
 
@@ -260,8 +268,8 @@ class SectorEconomicRatingService:
                 continue
             contribution = score * weight
             contributions[component] = {
-                "score":        round(float(score), 4),
-                "weight":       weight,
+                "score": round(float(score), 4),
+                "weight": weight,
                 "contribution": round(contribution, 4),
             }
             weighted_sum += contribution
@@ -280,16 +288,18 @@ class SectorEconomicRatingService:
             inflation_sensitivity_score=macro_components.get("inflation"),
             employment_sensitivity_score=macro_components.get("employment"),
             components={
-                "weights":       weights,
+                "weights": weights,
                 "contributions": contributions,
-                "macro_used":    {
+                "macro_used": {
                     k: round(float(v), 4)
                     for k, v in macro_components.items()
                     if v is not None
                 },
             },
             economic_snapshot_id=snapshot_id,
-            analysis=self._build_analysis(sector.name, economic_score, weights, macro_components),
+            analysis=self._build_analysis(
+                sector.name, economic_score, weights, macro_components
+            ),
             data_source="fred_derived",
             rated_at=datetime.utcnow(),
         )
